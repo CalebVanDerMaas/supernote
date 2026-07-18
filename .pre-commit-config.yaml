@@ -11,7 +11,7 @@ repos:
       - id: check-added-large-files
         exclude: '^tests/testdata/.*\.note$'
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.21
+    rev: v0.15.22
     hooks:
       - id: ruff-check
         args:
@@ -26,7 +26,7 @@ repos:
         language: system
         pass_filenames: false
   - repo: https://github.com/codespell-project/codespell
-    rev: v2.4.2
+    rev: v2.4.3
     hooks:
       - id: codespell
   - repo: https://github.com/adrienverge/yamllint.git
