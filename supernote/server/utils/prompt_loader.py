@@ -35,6 +35,15 @@ class PromptLoader:
         self.prompts: Dict[str, Dict[str, str]] = {}
         self._load_prompts()
 
+    def reload_prompts(
+        self, resources_dir: Optional[Union[Path, Traversable]] = None
+    ) -> None:
+        """Reload prompts from the specified directory or default resource directory."""
+        if resources_dir:
+            self.resources_dir = resources_dir
+        self.prompts.clear()
+        self._load_prompts()
+
     def _load_prompts(self) -> None:
         """Load all prompts from the resources directory into memory."""
         if not self.resources_dir.is_dir():
