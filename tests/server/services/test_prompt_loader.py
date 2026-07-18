@@ -83,5 +83,5 @@ def test_reload_prompts(mock_resources_dir: Path, tmp_path: Path) -> None:
         "New Summary", encoding="utf-8"
     )
 
-    loader.reload_prompts(new_prompts_dir)
+    loader.configure(new_prompts_dir)
     assert loader.get_prompt(PromptId.SUMMARY_GENERATION) == "New Summary"
