@@ -253,16 +253,9 @@ async def session_manager_fixture(
             f"DELETE FROM {table.name};"
             for table in reversed(Base.metadata.sorted_tables)
         )
-        try:
-            conn = await session.connection()
-            raw_conn = await conn.get_raw_connection()
-            await raw_conn.executescript(delete_sql)
-        except Exception:
-            for table in reversed(Base.metadata.sorted_tables):
-                try:
-                    await session.execute(text(f"DELETE FROM {table.name}"))
-                except Exception:
-                    pass
+        conn = await session.connection()
+        raw_conn = await conn.get_raw_connection()
+        await raw_conn._connection.executescript(delete_sql)
         await session.commit()
 
 
