@@ -29,6 +29,8 @@ dependencies = [
 [project.optional-dependencies]
 client = [
     "aiohttp",
+    "mashumaro>=3.17",
+    "python-socketio>=5.11.0",
     "requests",
     "tqdm",
 ]
