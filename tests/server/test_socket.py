@@ -112,6 +112,7 @@ async def test_socketio_multi_user_message_isolation(
     socketio_server: TestServer,
     create_socket_client: Callable[[], SupernoteSocketClient],
     server_config: ServerConfig,
+    secondary_test_user: str,
 ) -> None:
     secret = server_config.auth.secret_key
     user_a = "test@example.com"

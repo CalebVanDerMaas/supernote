@@ -107,7 +107,6 @@ def server_config(
     storage_root: Path,
     proxy_mode: str | None,
     configured_base_url: str | None,
-    server_port: int,
     mcp_port: int,
 ) -> ServerConfig:
     """Create a ServerConfig object for testing."""
@@ -115,7 +114,7 @@ def server_config(
         host="127.0.0.1",
         trace_log_file=mock_trace_log,
         storage_dir=str(storage_root),
-        port=server_port,
+        port=8080,
         mcp_port=mcp_port,
         proxy_mode=proxy_mode,
         _base_url=configured_base_url,
@@ -151,22 +150,16 @@ def coordination_service(
 @pytest.fixture
 async def test_users() -> list[str]:
     """Fixture with test users to create."""
-    return [TEST_USERNAME, "a@example.com"]
+    return [TEST_USERNAME]
 
 
 @pytest.fixture
 async def create_test_user(
     user_service: UserService,
-    session_manager: DatabaseSessionManager,
     test_users: list[str],
 ) -> None:
     """Create the default test user in the database."""
-
     for test_user in test_users:
-        # Ensure clean state
-        if await user_service.check_user_exists(test_user):
-            await user_service.unregister(test_user)
-
         result = await user_service.create_user(
             UserRegisterDTO(
                 email=test_user,
@@ -176,6 +169,24 @@ async def create_test_user(
         )
         assert result.id
         assert result.is_active
+
+
+@pytest.fixture
+async def secondary_test_user(
+    user_service: UserService,
+) -> str:
+    """Create a secondary test user in the database for multi-user isolation tests."""
+    user_email = "a@example.com"
+    result = await user_service.create_user(
+        UserRegisterDTO(
+            email=user_email,
+            password=hashlib.md5(TEST_PASSWORD.encode("utf-8")).hexdigest(),
+            user_name="Secondary Test User",
+        )
+    )
+    assert result.id
+    assert result.is_active
+    return user_email
 
 
 @pytest.fixture(name="auth_headers")
@@ -249,17 +260,21 @@ async def session_manager_fixture(
         yield _session_manager_shared
 
     # Truncate all tables to ensure isolation between tests efficiently
-    # In the future if we have AUTOINCREMENT counters:
-    #   DELETE FROM sqlite_sequence
     async with _session_manager_shared.session() as session:
-        for table in reversed(Base.metadata.sorted_tables):
-            # Wrap in try/except to handle cases where a table in metadata
-            # wasn't created (e.g. import race conditions) or was dropped.
-            try:
-                await session.execute(text(f"DELETE FROM {table.name}"))
-            except Exception:
-                # Warning: Failed to truncate table. This is usually fine if the table doesn't exist.
-                pass
+        delete_sql = "\n".join(
+            f"DELETE FROM {table.name};"
+            for table in reversed(Base.metadata.sorted_tables)
+        )
+        try:
+            conn = await session.connection()
+            raw_conn = await conn.get_raw_connection()
+            await raw_conn.executescript(delete_sql)
+        except Exception:
+            for table in reversed(Base.metadata.sorted_tables):
+                try:
+                    await session.execute(text(f"DELETE FROM {table.name}"))
+                except Exception:
+                    pass
         await session.commit()
 
 
@@ -302,8 +317,9 @@ async def client_fixture(
     coordination_service: SqliteCoordinationService,
 ) -> TestClient:
     """Create a test client for server tests."""
-    app = create_app(server_config)
-    return await aiohttp_client(app)
+    with patch("supernote.server.app.run_migrations"):
+        app = create_app(server_config)
+        return await aiohttp_client(app)
 
 
 @pytest.fixture
