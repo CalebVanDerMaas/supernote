@@ -47,11 +47,7 @@ class ScheduleTaskLinkDTO(DataClassJSONMixin):
 
     def to_b64(self) -> str:
         """Encode this link object to a Base64 JSON string."""
-        raw_json = self.to_json()
-        encoded_bytes = (
-            raw_json.encode("utf-8") if isinstance(raw_json, str) else bytes(raw_json)
-        )
-        return base64.b64encode(encoded_bytes).decode("utf-8")
+        return base64.b64encode(str(self.to_json()).encode("utf-8")).decode("utf-8")
 
     @classmethod
     def from_b64(cls, b64_str: str) -> "ScheduleTaskLinkDTO":

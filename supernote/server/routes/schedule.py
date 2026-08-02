@@ -1,4 +1,5 @@
 import logging
+from dataclasses import fields
 from typing import Any
 
 from aiohttp import web
@@ -28,6 +29,23 @@ from supernote.server.services.schedule import ScheduleService
 logger = logging.getLogger(__name__)
 
 routes = web.RouteTableDef()
+
+
+def _extract_task_updates(dto: UpdateScheduleTaskDTO) -> dict[str, Any]:
+    """Extract populated update fields from UpdateScheduleTaskDTO into a service dict."""
+    updates: dict[str, Any] = {}
+    for f in fields(dto):
+        if f.name in ("task_id", "last_modified", "is_deleted"):
+            continue
+        val = getattr(dto, f.name)
+        if val is not None:
+            if f.name == "task_list_id":
+                updates["task_list_id"] = int(val)
+            elif f.name == "is_reminder_on":
+                updates["is_reminder_on"] = val == BooleanEnum.YES
+            else:
+                updates[f.name] = val
+    return updates
 
 
 @routes.post("/api/file/schedule/group")
@@ -237,42 +255,7 @@ async def update_task(request: web.Request) -> web.Response:
         schedule_service: ScheduleService = request.app["schedule_service"]
         user_id = await request.app["user_service"].get_user_id(user)
 
-        updates: dict[str, Any] = {}
-        if dto.title is not None:
-            updates["title"] = dto.title
-        if dto.detail is not None:
-            updates["detail"] = dto.detail
-        if dto.status is not None:
-            updates["status"] = dto.status
-        if dto.importance is not None:
-            updates["importance"] = dto.importance
-        if dto.due_time is not None:
-            updates["due_time"] = dto.due_time
-        if dto.recurrence is not None:
-            updates["recurrence"] = dto.recurrence
-        if dto.is_reminder_on is not None:
-            updates["is_reminder_on"] = dto.is_reminder_on == BooleanEnum.YES
-        if dto.task_list_id is not None:
-            updates["task_list_id"] = int(dto.task_list_id)
-        if dto.links is not None:
-            updates["links"] = dto.links
-        if dto.sort is not None:
-            updates["sort"] = dto.sort
-        if dto.sort_completed is not None:
-            updates["sort_completed"] = dto.sort_completed
-        if dto.planer_sort is not None:
-            updates["planer_sort"] = dto.planer_sort
-        if dto.all_sort is not None:
-            updates["all_sort"] = dto.all_sort
-        if dto.all_sort_completed is not None:
-            updates["all_sort_completed"] = dto.all_sort_completed
-        if dto.sort_time is not None:
-            updates["sort_time"] = dto.sort_time
-        if dto.planer_sort_time is not None:
-            updates["planer_sort_time"] = dto.planer_sort_time
-        if dto.all_sort_time is not None:
-            updates["all_sort_time"] = dto.all_sort_time
-
+        updates = _extract_task_updates(dto)
         updated_task = await schedule_service.update_task(user_id, task_id, **updates)
         if not updated_task:
             raise SupernoteError("Not found", status_code=404)
@@ -301,40 +284,9 @@ async def batch_update_task_list(request: web.Request) -> web.Response:
         updates_list: list[dict[str, Any]] = []
         for item in dto.update_schedule_task_list:
             if item.task_id:
-                updates: dict[str, Any] = {"task_id": int(item.task_id)}
-                if item.title is not None:
-                    updates["title"] = item.title
-                if item.detail is not None:
-                    updates["detail"] = item.detail
-                if item.status is not None:
-                    updates["status"] = item.status
-                if item.importance is not None:
-                    updates["importance"] = item.importance
-                if item.due_time is not None:
-                    updates["due_time"] = item.due_time
-                if item.recurrence is not None:
-                    updates["recurrence"] = item.recurrence
-                if item.is_reminder_on is not None:
-                    updates["is_reminder_on"] = item.is_reminder_on == BooleanEnum.YES
-                if item.links is not None:
-                    updates["links"] = item.links
-                if item.sort is not None:
-                    updates["sort"] = item.sort
-                if item.sort_completed is not None:
-                    updates["sort_completed"] = item.sort_completed
-                if item.planer_sort is not None:
-                    updates["planer_sort"] = item.planer_sort
-                if item.all_sort is not None:
-                    updates["all_sort"] = item.all_sort
-                if item.all_sort_completed is not None:
-                    updates["all_sort_completed"] = item.all_sort_completed
-                if item.sort_time is not None:
-                    updates["sort_time"] = item.sort_time
-                if item.planer_sort_time is not None:
-                    updates["planer_sort_time"] = item.planer_sort_time
-                if item.all_sort_time is not None:
-                    updates["all_sort_time"] = item.all_sort_time
-                updates_list.append(updates)
+                item_updates = _extract_task_updates(item)
+                item_updates["task_id"] = int(item.task_id)
+                updates_list.append(item_updates)
 
         await schedule_service.batch_update_tasks(user_id, updates_list)
         return web.json_response(BaseResponse(success=True).to_dict())

@@ -12,6 +12,32 @@ logger = logging.getLogger(__name__)
 MAX_TITLE_LENGTH = 255
 MAX_DETAIL_LENGTH = 1 * 1024 * 1024  # 1MB
 
+# Task field sets for service operations and updates
+TASK_BASE_FIELDS: set[str] = {
+    "title",
+    "detail",
+    "status",
+    "importance",
+    "due_time",
+    "completed_time",
+    "recurrence",
+    "is_reminder_on",
+    "task_list_id",
+}
+
+TASK_SORT_FIELDS: set[str] = {
+    "sort",
+    "sort_completed",
+    "planer_sort",
+    "all_sort",
+    "all_sort_completed",
+    "sort_time",
+    "planer_sort_time",
+    "all_sort_time",
+}
+
+TASK_ALLOWED_UPDATE_FIELDS: set[str] = TASK_BASE_FIELDS | TASK_SORT_FIELDS | {"links"}
+
 
 class ScheduleService:
     """Schedule service."""
@@ -40,12 +66,12 @@ class ScheduleService:
     async def list_groups(self, user_id: int) -> list[ScheduleTaskGroupDO]:
         """List all task groups for a user."""
         async with self.session_manager.session() as session:
-            stmt = (
+            query = (
                 select(ScheduleTaskGroupDO)
                 .where(ScheduleTaskGroupDO.user_id == user_id)
-                .order_by(ScheduleTaskGroupDO.create_time.desc())
+                .order_by(ScheduleTaskGroupDO.create_time.asc())
             )
-            result = await session.execute(stmt)
+            result = await session.execute(query)
             return list(result.scalars().all())
 
     async def get_group(
@@ -79,6 +105,7 @@ class ScheduleService:
             await session.execute(stmt)
             await session.commit()
 
+            # Retrieve updated
             stmt_get = select(ScheduleTaskGroupDO).where(
                 ScheduleTaskGroupDO.user_id == user_id,
                 ScheduleTaskGroupDO.task_list_id == group_id,
@@ -86,31 +113,34 @@ class ScheduleService:
             result = await session.execute(stmt_get)
             return result.scalar_one_or_none()
 
-    async def clear_group(self, user_id: int, group_id: int) -> bool:
-        """Clear all tasks within a task group."""
-        async with self.session_manager.session() as session:
-            stmt = delete(ScheduleTaskDO).where(
-                ScheduleTaskDO.user_id == user_id,
-                ScheduleTaskDO.task_list_id == group_id,
-            )
-            await session.execute(stmt)
-            await session.commit()
-            return True
-
     async def delete_group(self, user_id: int, group_id: int) -> bool:
         """Delete a task group and cascade delete all contained tasks."""
         async with self.session_manager.session() as session:
+            # First cascade delete all tasks in the group
             stmt_tasks = delete(ScheduleTaskDO).where(
                 ScheduleTaskDO.user_id == user_id,
                 ScheduleTaskDO.task_list_id == group_id,
             )
             await session.execute(stmt_tasks)
 
+            # Then delete the group itself
             stmt_group = delete(ScheduleTaskGroupDO).where(
                 ScheduleTaskGroupDO.user_id == user_id,
                 ScheduleTaskGroupDO.task_list_id == group_id,
             )
             result = await session.execute(stmt_group)
+            await session.commit()
+
+            return bool(getattr(result, "rowcount", 0) > 0)
+
+    async def clear_group(self, user_id: int, group_id: int) -> bool:
+        """Clear all tasks from a task group without deleting the group."""
+        async with self.session_manager.session() as session:
+            stmt = delete(ScheduleTaskDO).where(
+                ScheduleTaskDO.user_id == user_id,
+                ScheduleTaskDO.task_list_id == group_id,
+            )
+            result = await session.execute(stmt)
             await session.commit()
             return bool(getattr(result, "rowcount", 0) > 0)
 
@@ -198,27 +228,7 @@ class ScheduleService:
         self, user_id: int, task_id: int, **kwargs: Any
     ) -> ScheduleTaskDO | None:
         """Update a task."""
-        allowed_fields = {
-            "title",
-            "detail",
-            "status",
-            "importance",
-            "due_time",
-            "completed_time",
-            "recurrence",
-            "is_reminder_on",
-            "task_list_id",
-            "links",
-            "sort",
-            "sort_completed",
-            "planer_sort",
-            "all_sort",
-            "all_sort_completed",
-            "sort_time",
-            "planer_sort_time",
-            "all_sort_time",
-        }
-        updates = {k: v for k, v in kwargs.items() if k in allowed_fields}
+        updates = {k: v for k, v in kwargs.items() if k in TASK_ALLOWED_UPDATE_FIELDS}
 
         async with self.session_manager.session() as session:
             stmt = (
@@ -243,26 +253,6 @@ class ScheduleService:
         self, user_id: int, updates_list: list[dict[str, Any]]
     ) -> bool:
         """Batch update tasks atomically in a single transaction."""
-        allowed_fields = {
-            "title",
-            "detail",
-            "status",
-            "importance",
-            "due_time",
-            "completed_time",
-            "recurrence",
-            "is_reminder_on",
-            "task_list_id",
-            "links",
-            "sort",
-            "sort_completed",
-            "planer_sort",
-            "all_sort",
-            "all_sort_completed",
-            "sort_time",
-            "planer_sort_time",
-            "all_sort_time",
-        }
         async with self.session_manager.session() as session:
             for item in updates_list:
                 task_id = item.get("task_id")
@@ -278,7 +268,7 @@ class ScheduleService:
                 updates = {
                     k: v
                     for k, v in item.items()
-                    if k in allowed_fields and v is not None
+                    if k in TASK_ALLOWED_UPDATE_FIELDS and v is not None
                 }
                 if not updates:
                     continue
