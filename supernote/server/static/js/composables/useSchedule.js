@@ -113,9 +113,9 @@ export function useSchedule() {
         }
     }
 
-    // Filtered Tasks COMPUTED
+    // Filtered & Sorted Tasks COMPUTED
     const filteredTasks = computed(() => {
-        return tasks.value.filter(task => {
+        const result = tasks.value.filter(task => {
             // Group Filter
             if (selectedGroupId.value !== null && String(task.taskListId) !== String(selectedGroupId.value)) {
                 return false;
@@ -130,8 +130,6 @@ export function useSchedule() {
                 if (task.importance !== 'high') return false;
             } else if (selectedFilter.value === 'completed') {
                 if (task.status !== 'completed') return false;
-            } else if (selectedFilter.value === 'all') {
-                // By default show active tasks unless specifically viewing completed
             }
 
             // Search Query
@@ -143,6 +141,28 @@ export function useSchedule() {
             }
 
             return true;
+        });
+
+        // Sort based on current view tab & device sort indexes
+        return result.sort((a, b) => {
+            if (selectedFilter.value === 'completed') {
+                if (a.sortCompleted !== null && b.sortCompleted !== null) {
+                    return a.sortCompleted - b.sortCompleted;
+                }
+            } else if (selectedGroupId.value !== null) {
+                // Group View: Sort by `sort`
+                if (a.sort !== null && b.sort !== null) {
+                    return a.sort - b.sort;
+                }
+            } else {
+                // All Tasks View: Sort by `allSort`
+                if (a.allSort !== null && b.allSort !== null) {
+                    return a.allSort - b.allSort;
+                }
+            }
+
+            // Default Fallback: Creation time descending
+            return (b.createTime || 0) - (a.createTime || 0);
         });
     });
 
