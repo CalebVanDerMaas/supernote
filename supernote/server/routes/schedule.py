@@ -163,7 +163,7 @@ async def clear_group(request: web.Request) -> web.Response:
         schedule_service: ScheduleService = request.app["schedule_service"]
         user_id = await request.app["user_service"].get_user_id(user)
 
-        await schedule_service.clear_group(user_id, int(dto.task_list_id))
+        await schedule_service.clear_group_tasks(user_id, int(dto.task_list_id))
         return web.json_response(BaseResponse(success=True).to_dict())
     except SupernoteError as err:
         return err.to_response()

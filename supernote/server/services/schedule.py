@@ -133,7 +133,7 @@ class ScheduleService:
 
             return bool(getattr(result, "rowcount", 0) > 0)
 
-    async def clear_group(self, user_id: int, group_id: int) -> bool:
+    async def clear_group_tasks(self, user_id: int, group_id: int) -> bool:
         """Clear all tasks from a task group without deleting the group."""
         async with self.session_manager.session() as session:
             stmt = delete(ScheduleTaskDO).where(
