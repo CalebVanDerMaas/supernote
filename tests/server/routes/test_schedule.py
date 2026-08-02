@@ -369,3 +369,61 @@ async def test_delete_group_cascades_contained_tasks(
 
     tasks_after = [t async for t in schedule.list_tasks(group_id)]
     assert len(tasks_after) == 0
+
+
+async def test_batch_update_task_list_sort_fields(
+    authenticated_client: Client,
+) -> None:
+    schedule = ScheduleClient(authenticated_client)
+    group_vo = await schedule.create_group("Sort Batch Group")
+    assert group_vo.task_list_id is not None
+    group_id = int(group_vo.task_list_id)
+
+    task1_vo = await schedule.create_task(group_id, "Task 101")
+    task2_vo = await schedule.create_task(group_id, "Task 102")
+    assert task1_vo.task_id is not None
+    assert task2_vo.task_id is not None
+
+    # Perform batch update of sort indexes (simulating device drag-and-drop reorder)
+    resp = await authenticated_client.put(
+        "/api/file/schedule/task/list",
+        json={
+            "updateScheduleTaskList": [
+                {
+                    "taskId": task1_vo.task_id,
+                    "sort": 1,
+                    "planerSort": 10,
+                    "allSort": 100,
+                },
+                {
+                    "taskId": task2_vo.task_id,
+                    "sort": 2,
+                    "planerSort": 20,
+                    "allSort": 200,
+                },
+            ]
+        },
+    )
+    assert resp.status == 200
+    res_data = await resp.json()
+    assert res_data["success"] is True
+
+    # Verify task 1 sort fields
+    t1_res = await authenticated_client.get(
+        f"/api/file/schedule/task/{task1_vo.task_id}"
+    )
+    t1_data = await t1_res.json()
+    assert t1_data["sort"] == 1
+    assert t1_data["planerSort"] == 10
+    assert t1_data["allSort"] == 100
+
+    # Verify task 2 sort fields
+    t2_res = await authenticated_client.get(
+        f"/api/file/schedule/task/{task2_vo.task_id}"
+    )
+    t2_data = await t2_res.json()
+    assert t2_data["sort"] == 2
+    assert t2_data["planerSort"] == 20
+    assert t2_data["allSort"] == 200
+
+    await schedule.delete_group(group_id)

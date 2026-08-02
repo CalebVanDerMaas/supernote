@@ -253,6 +253,15 @@ class ScheduleService:
             "recurrence",
             "is_reminder_on",
             "task_list_id",
+            "links",
+            "sort",
+            "sort_completed",
+            "planer_sort",
+            "all_sort",
+            "all_sort_completed",
+            "sort_time",
+            "planer_sort_time",
+            "all_sort_time",
         }
         async with self.session_manager.session() as session:
             for item in updates_list:
