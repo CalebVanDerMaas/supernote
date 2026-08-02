@@ -1,7 +1,8 @@
 import logging
-from typing import Any
+from typing import Any, cast
 
 from sqlalchemy import delete, select, update
+from sqlalchemy.engine import CursorResult
 
 from supernote.server.db.models.schedule import ScheduleTaskDO, ScheduleTaskGroupDO
 from supernote.server.db.session import DatabaseSessionManager
@@ -156,6 +157,6 @@ class ScheduleService:
             stmt = delete(ScheduleTaskDO).where(
                 ScheduleTaskDO.user_id == user_id, ScheduleTaskDO.task_id == task_id
             )
-            result = await session.execute(stmt)
+            result = cast(CursorResult[Any], await session.execute(stmt))
             await session.commit()
-            return bool(getattr(result, "rowcount", 0) > 0)
+            return bool(result.rowcount > 0)
