@@ -94,8 +94,13 @@ export function useSchedule() {
         }
     }
 
-    async function removeGroup(groupId) {
-        if (!confirm("Are you sure you want to delete this group and all its tasks?")) return;
+    async function removeGroup(groupId, groupTitle = '') {
+        const count = tasks.value.filter(t => String(t.taskListId) === String(groupId)).length;
+        const warningText = count > 0
+            ? `Are you sure you want to delete "${groupTitle || 'this group'}"?\n\n⚠️ WARNING: Deleting this group will permanently delete all ${count} task(s) inside it!`
+            : `Are you sure you want to delete "${groupTitle || 'this group'}"?`;
+
+        if (!confirm(warningText)) return;
         try {
             await deleteTaskGroup(groupId);
             if (selectedGroupId.value === String(groupId)) {
