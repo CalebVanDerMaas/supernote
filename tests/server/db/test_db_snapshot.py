@@ -1,5 +1,6 @@
 """Snapshot test for verifying fixture database schema and content integrity using Syrupy."""
 
+import re
 import sqlite3
 from pathlib import Path
 
@@ -9,10 +10,20 @@ FIXTURES_DIR = Path(__file__).parent.parent.parent / "fixtures"
 SQLITE_FIXTURES = sorted(FIXTURES_DIR.glob("*.sqlite"))
 
 
+def normalize_sql_line(line: str) -> str:
+    """Normalize floating point numbers in SQL dump lines for portable snapshot comparisons."""
+
+    def norm_num(m: re.Match[str]) -> str:
+        val = float(m.group(0))
+        return f"{val:.4f}"
+
+    return re.sub(r"\b\d+\.\d+(?:e[+-]\d+)?\b", norm_num, line)
+
+
 def generate_sql_dump(db_path: Path) -> str:
     """Generate a deterministic SQL dump from a SQLite database file."""
     conn = sqlite3.connect(db_path)
-    lines = list(conn.iterdump())
+    lines = [normalize_sql_line(line) for line in conn.iterdump()]
     conn.close()
     return "\n".join(lines) + "\n"
 
