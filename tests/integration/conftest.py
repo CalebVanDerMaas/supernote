@@ -65,8 +65,6 @@ async def populated_migrated_live_server(
 ) -> AsyncGenerator[ServerHandle, None]:
     """Provide a running server initialized with a populated v1 DB containing a pre-existing user."""
     populated_fixture = Path("tests/fixtures/db_v1_populated.sqlite").absolute()
-    await generate_populated_v1_db_with_server(populated_fixture)
-
     async with ServerRunner(
         storage_dir=tmp_path / "populated_server_data",
         initial_db=populated_fixture,
