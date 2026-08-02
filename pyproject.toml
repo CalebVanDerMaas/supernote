@@ -101,6 +101,7 @@ warn_return_any = true
 warn_unreachable = true
 
 [tool.pytest.ini_options]
+addopts = "-n auto"
 asyncio_mode = "auto"
 # Ignore pytest warnings in upstream libraries
 filterwarnings = [
@@ -119,3 +120,8 @@ exclude = [
 [tool.ty.rules]
 unused-type-ignore-comment = "ignore"
 unresolved-import = "ignore"
+
+[dependency-groups]
+dev = [
+    "pytest-xdist>=3.8.0",
+]
