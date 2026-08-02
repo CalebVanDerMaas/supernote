@@ -261,7 +261,7 @@ async def session_manager_fixture(
 
     # Truncate all tables to ensure isolation between tests efficiently
     async with _session_manager_shared.session() as session:
-        delete_sql = "\n".join(
+        delete_sql = "PRAGMA foreign_keys = OFF;\n" + "\n".join(
             f"DELETE FROM {table.name};"
             for table in reversed(Base.metadata.sorted_tables)
         )
