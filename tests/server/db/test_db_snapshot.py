@@ -11,13 +11,14 @@ SQLITE_FIXTURES = sorted(FIXTURES_DIR.glob("*.sqlite"))
 
 
 def normalize_sql_line(line: str) -> str:
-    """Normalize floating point numbers in SQL dump lines for portable snapshot comparisons."""
+    """Normalize floating point numbers and strip trailing whitespace in SQL dump lines."""
 
     def norm_num(m: re.Match[str]) -> str:
         val = float(m.group(0))
         return f"{val:.4f}"
 
-    return re.sub(r"\b\d+\.\d+(?:e[+-]\d+)?\b", norm_num, line)
+    line = re.sub(r"\b\d+\.\d+(?:e[+-]\d+)?\b", norm_num, line)
+    return line.rstrip()
 
 
 def generate_sql_dump(db_path: Path) -> str:
