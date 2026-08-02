@@ -15,7 +15,6 @@ import jwt
 import pytest
 from aiohttp.test_utils import TestClient
 from pytest_aiohttp import AiohttpClient
-from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import supernote.server.db.models  # noqa: F401
