@@ -76,9 +76,8 @@ class ScheduleClient:
         page_token = None
         while True:
             dto = ScheduleTaskGroupDTO(page_token=page_token)
-            json_data = {k: v for k, v in dto.to_dict().items() if v is not None}
             response = await self._client.post_json(
-                "/api/file/schedule/group/all", ScheduleTaskGroupVO, json=json_data
+                "/api/file/schedule/group/all", ScheduleTaskGroupVO, json=dto.to_dict()
             )
 
             for item in response.schedule_task_group:
@@ -136,13 +135,10 @@ class ScheduleClient:
         Yields:
             ScheduleTaskInfo: A schedule task.
         """
-        next_page_tokens = None
+        page_token = None
         while True:
-            dto = ScheduleTaskDTO(
-                max_results=None,
-                next_page_tokens=next_page_tokens,
-            )
-            json_data = {k: v for k, v in dto.to_dict().items() if v is not None}
+            dto = ScheduleTaskDTO(next_page_tokens=page_token)
+            json_data = dto.to_dict()
             if group_id:
                 json_data["taskListId"] = str(group_id)
 
@@ -153,8 +149,8 @@ class ScheduleClient:
             for item in response.schedule_task:
                 yield item
 
-            next_page_tokens = response.next_page_token
-            if not next_page_tokens:
+            page_token = response.next_page_token
+            if not page_token:
                 break
 
     async def update_task(
