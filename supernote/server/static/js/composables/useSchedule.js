@@ -143,25 +143,42 @@ export function useSchedule() {
             return true;
         });
 
-        // Sort based on current view tab & device sort indexes
+        // Sort based on current view tab & device sort indexes with robust fallbacks
         return result.sort((a, b) => {
+            let valA = null;
+            let valB = null;
+
             if (selectedFilter.value === 'completed') {
-                if (a.sortCompleted !== null && b.sortCompleted !== null) {
-                    return a.sortCompleted - b.sortCompleted;
-                }
+                valA = a.sortCompleted;
+                valB = b.sortCompleted;
             } else if (selectedGroupId.value !== null) {
                 // Group View: Sort by `sort`
-                if (a.sort !== null && b.sort !== null) {
-                    return a.sort - b.sort;
-                }
+                valA = a.sort;
+                valB = b.sort;
             } else {
                 // All Tasks View: Sort by `allSort`
-                if (a.allSort !== null && b.allSort !== null) {
-                    return a.allSort - b.allSort;
-                }
+                valA = a.allSort;
+                valB = b.allSort;
             }
 
-            // Default Fallback: Creation time descending
+            // 1. If both have explicit sort values, sort by index ascending
+            if (valA !== null && valA !== undefined && valB !== null && valB !== undefined) {
+                if (valA !== valB) return valA - valB;
+            }
+            // 2. Explicitly sorted items come before unsorted (null) items
+            if (valA !== null && valA !== undefined && (valB === null || valB === undefined)) {
+                return -1;
+            }
+            if ((valA === null || valA === undefined) && valB !== null && valB !== undefined) {
+                return 1;
+            }
+
+            // 3. Fallback: Due time ascending (if present)
+            if (a.dueTime && b.dueTime && a.dueTime !== b.dueTime) {
+                return a.dueTime - b.dueTime;
+            }
+
+            // 4. Fallback: Creation time descending (newest first)
             return (b.createTime || 0) - (a.createTime || 0);
         });
     });
