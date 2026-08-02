@@ -1,6 +1,3 @@
-import base64
-import json
-
 import pytest
 from aiohttp.test_utils import TestClient
 
@@ -12,6 +9,7 @@ from supernote.models.schedule import (
     AddScheduleTaskGroupVO,
     AddScheduleTaskVO,
     ScheduleTaskGroupItem,
+    ScheduleTaskLinkDTO,
     UpdateScheduleTaskVO,
 )
 
@@ -207,15 +205,15 @@ async def test_task_notebook_links_encoding_and_decoding(
     assert group_vo.task_list_id is not None
     group_id = int(group_vo.task_list_id)
 
-    # Construct explicit Supernote notebook link JSON payload
-    link_payload = {
-        "appName": "Note",
-        "fileId": "739213260577833138",
-        "path": "/Note/2026_Executive_Planner.note",
-        "page": 24,
-        "pageId": "p24_guid_9823749823",
-    }
-    encoded_links = base64.b64encode(json.dumps(link_payload).encode()).decode()
+    # Construct explicit Supernote notebook link using ScheduleTaskLinkDTO
+    link_dto = ScheduleTaskLinkDTO(
+        app_name="Note",
+        file_id="739213260577833138",
+        path="/Note/2026_Executive_Planner.note",
+        page=24,
+        page_id="p24_guid_9823749823",
+    )
+    encoded_links = link_dto.to_b64()
 
     # Create task with encoded notebook link
     resp_create = await authenticated_client.post(
@@ -232,7 +230,7 @@ async def test_task_notebook_links_encoding_and_decoding(
     create_data = await resp_create.json()
     task_id = create_data["taskId"]
 
-    # Verify GET task returns exact links string and decodes to match original payload
+    # Verify GET task returns exact links string and decodes using ScheduleTaskLinkDTO.from_b64
     resp_get = await authenticated_client.get(f"/api/file/schedule/task/{task_id}")
     assert resp_get.status == 200
     get_data = await resp_get.json()
@@ -240,11 +238,13 @@ async def test_task_notebook_links_encoding_and_decoding(
     retrieved_links = get_data["links"]
     assert retrieved_links == encoded_links
 
-    decoded_json = json.loads(base64.b64decode(retrieved_links).decode())
-    assert decoded_json == link_payload
-    assert decoded_json["appName"] == "Note"
-    assert decoded_json["path"] == "/Note/2026_Executive_Planner.note"
-    assert decoded_json["page"] == 24
+    decoded_dto = ScheduleTaskLinkDTO.from_b64(retrieved_links)
+    assert decoded_dto == link_dto
+    assert decoded_dto.app_name == "Note"
+    assert decoded_dto.path == "/Note/2026_Executive_Planner.note"
+    assert decoded_dto.page == 24
+    assert decoded_dto.file_id == "739213260577833138"
+    assert decoded_dto.page_id == "p24_guid_9823749823"
 
     await schedule.delete_group(group_id)
 
