@@ -94,13 +94,8 @@ export function useSchedule() {
         }
     }
 
-    async function removeGroup(groupId, groupTitle = '') {
-        const count = tasks.value.filter(t => String(t.taskListId) === String(groupId)).length;
-        const warningText = count > 0
-            ? `Are you sure you want to delete "${groupTitle || 'this group'}"?\n\n⚠️ WARNING: Deleting this group will permanently delete all ${count} task(s) inside it!`
-            : `Are you sure you want to delete "${groupTitle || 'this group'}"?`;
-
-        if (!confirm(warningText)) return;
+    async function removeGroup(groupId) {
+        if (!confirm("Are you sure you want to delete this group and all its tasks?")) return;
         try {
             await deleteTaskGroup(groupId);
             if (selectedGroupId.value === String(groupId)) {
@@ -113,9 +108,9 @@ export function useSchedule() {
         }
     }
 
-    // Filtered & Sorted Tasks COMPUTED
+    // Filtered Tasks COMPUTED
     const filteredTasks = computed(() => {
-        const result = tasks.value.filter(task => {
+        return tasks.value.filter(task => {
             // Group Filter
             if (selectedGroupId.value !== null && String(task.taskListId) !== String(selectedGroupId.value)) {
                 return false;
@@ -130,6 +125,8 @@ export function useSchedule() {
                 if (task.importance !== 'high') return false;
             } else if (selectedFilter.value === 'completed') {
                 if (task.status !== 'completed') return false;
+            } else if (selectedFilter.value === 'all') {
+                // By default show active tasks unless specifically viewing completed
             }
 
             // Search Query
@@ -141,45 +138,6 @@ export function useSchedule() {
             }
 
             return true;
-        });
-
-        // Sort based on current view tab & device sort indexes with robust fallbacks
-        return result.sort((a, b) => {
-            let valA = null;
-            let valB = null;
-
-            if (selectedFilter.value === 'completed') {
-                valA = a.sortCompleted;
-                valB = b.sortCompleted;
-            } else if (selectedGroupId.value !== null) {
-                // Group View: Sort by `sort`
-                valA = a.sort;
-                valB = b.sort;
-            } else {
-                // All Tasks View: Sort by `allSort`
-                valA = a.allSort;
-                valB = b.allSort;
-            }
-
-            // 1. If both have explicit sort values, sort by index ascending
-            if (valA !== null && valA !== undefined && valB !== null && valB !== undefined) {
-                if (valA !== valB) return valA - valB;
-            }
-            // 2. Explicitly sorted items come before unsorted (null) items
-            if (valA !== null && valA !== undefined && (valB === null || valB === undefined)) {
-                return -1;
-            }
-            if ((valA === null || valA === undefined) && valB !== null && valB !== undefined) {
-                return 1;
-            }
-
-            // 3. Fallback: Due time ascending (if present)
-            if (a.dueTime && b.dueTime && a.dueTime !== b.dueTime) {
-                return a.dueTime - b.dueTime;
-            }
-
-            // 4. Fallback: Creation time descending (newest first)
-            return (b.createTime || 0) - (a.createTime || 0);
         });
     });
 
