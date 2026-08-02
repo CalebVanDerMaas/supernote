@@ -11,6 +11,8 @@ from supernote.testing.server_runner import ServerHandle
 
 pytestmark = pytest.mark.integration
 
+TEST_NOTE_PATH = Path("tests/testdata/20251207_221454.note").absolute()
+
 
 @pytest.mark.asyncio
 async def test_fresh_live_server_e2e(live_server: ServerHandle, snapshot) -> None:
@@ -52,13 +54,14 @@ async def test_fresh_live_server_e2e(live_server: ServerHandle, snapshot) -> Non
     assert ls_result.returncode == 0, f"ls failed: {ls_result.stderr}"
 
     # Upload test note file via SDK and verify it exists on server
-    test_note = Path("tests/testdata/20251207_221454.note").absolute()
-    assert test_note.exists()
+    assert TEST_NOTE_PATH.exists()
     async with await Supernote.login(
         user_email, user_password, host=live_server.base_url
     ) as sn:
         await sn.device.upload_content(
-            "/Note/20251207_221454.note", test_note.read_bytes(), equipment_no="WEB"
+            f"/Note/{TEST_NOTE_PATH.name}",
+            TEST_NOTE_PATH.read_bytes(),
+            equipment_no="WEB",
         )
         folder_vo = await sn.device.list_folder("/Note")
         folder_dict = folder_vo.to_dict()
