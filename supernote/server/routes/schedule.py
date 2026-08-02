@@ -12,6 +12,7 @@ from supernote.models.schedule import (
     ClearScheduleTaskGroupDTO,
     GetScheduleTaskGroupVO,
     ScheduleTaskAllVO,
+    ScheduleTaskDTO,
     ScheduleTaskGroupItem,
     ScheduleTaskGroupVO,
     ScheduleTaskInfo,
@@ -364,14 +365,14 @@ async def get_task(request: web.Request) -> web.Response:
 @routes.post("/api/file/schedule/task/all")
 async def list_tasks(request: web.Request) -> web.Response:
     try:
-        group_id_str = None
+        group_id = None
         try:
             data = await request.json()
-            group_id_str = data.get("taskListId")
+            dto = ScheduleTaskDTO.from_dict(data)
+            if dto.task_list_id:
+                group_id = int(dto.task_list_id)
         except Exception:
             pass
-
-        group_id = int(group_id_str) if group_id_str else None
 
         user = request["user"]
         schedule_service: ScheduleService = request.app["schedule_service"]

@@ -137,13 +137,12 @@ class ScheduleClient:
         """
         page_token = None
         while True:
-            dto = ScheduleTaskDTO(next_page_tokens=page_token)
-            json_data = dto.to_dict()
-            if group_id:
-                json_data["taskListId"] = str(group_id)
-
+            dto = ScheduleTaskDTO(
+                task_list_id=str(group_id) if group_id else None,
+                next_page_tokens=page_token,
+            )
             response = await self._client.post_json(
-                "/api/file/schedule/task/all", ScheduleTaskAllVO, json=json_data
+                "/api/file/schedule/task/all", ScheduleTaskAllVO, json=dto.to_dict()
             )
 
             for item in response.schedule_task:
