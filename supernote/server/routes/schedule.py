@@ -270,9 +270,10 @@ async def batch_update_task_list(request: web.Request) -> web.Response:
         schedule_service: ScheduleService = request.app["schedule_service"]
         user_id = await request.app["user_service"].get_user_id(user)
 
+        updates_list: list[dict[str, Any]] = []
         for item in dto.update_schedule_task_list:
             if item.task_id:
-                updates: dict[str, Any] = {}
+                updates: dict[str, Any] = {"task_id": int(item.task_id)}
                 if item.title is not None:
                     updates["title"] = item.title
                 if item.detail is not None:
@@ -287,13 +288,14 @@ async def batch_update_task_list(request: web.Request) -> web.Response:
                     updates["recurrence"] = item.recurrence
                 if item.is_reminder_on is not None:
                     updates["is_reminder_on"] = item.is_reminder_on == BooleanEnum.YES
-                await schedule_service.update_task(
-                    user_id, int(item.task_id), **updates
-                )
+                updates_list.append(updates)
 
+        await schedule_service.batch_update_tasks(user_id, updates_list)
         return web.json_response(BaseResponse(success=True).to_dict())
     except SupernoteError as err:
         return err.to_response()
+    except ValueError as err:
+        return SupernoteError(str(err), status_code=400).to_response()
     except Exception as err:
         return SupernoteError.uncaught(err).to_response()
 

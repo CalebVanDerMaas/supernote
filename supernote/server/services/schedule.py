@@ -209,6 +209,55 @@ class ScheduleService:
             result = await session.execute(stmt_get)
             return result.scalar_one_or_none()
 
+    async def batch_update_tasks(
+        self, user_id: int, updates_list: list[dict[str, Any]]
+    ) -> bool:
+        """Batch update tasks atomically in a single transaction."""
+        allowed_fields = {
+            "title",
+            "detail",
+            "status",
+            "importance",
+            "due_time",
+            "completed_time",
+            "recurrence",
+            "is_reminder_on",
+            "task_list_id",
+        }
+        async with self.session_manager.session() as session:
+            for item in updates_list:
+                task_id = item.get("task_id")
+                if not task_id:
+                    continue
+                title = item.get("title")
+                if title is not None and len(title) > MAX_TITLE_LENGTH:
+                    raise ValueError("Title is too long")
+                detail = item.get("detail")
+                if detail is not None and len(detail) > MAX_DETAIL_LENGTH:
+                    raise ValueError("Detail is too long")
+
+                updates = {
+                    k: v
+                    for k, v in item.items()
+                    if k in allowed_fields and v is not None
+                }
+                if not updates:
+                    continue
+
+                stmt = (
+                    update(ScheduleTaskDO)
+                    .where(
+                        ScheduleTaskDO.user_id == user_id,
+                        ScheduleTaskDO.task_id == task_id,
+                    )
+                    .values(**updates)
+                )
+                res = await session.execute(stmt)
+                if getattr(res, "rowcount", 0) == 0:
+                    raise ValueError(f"Task {task_id} not found")
+            await session.commit()
+            return True
+
     async def delete_task(self, user_id: int, task_id: int) -> bool:
         """Delete a task."""
         async with self.session_manager.session() as session:

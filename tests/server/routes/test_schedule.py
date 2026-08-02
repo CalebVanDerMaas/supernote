@@ -138,7 +138,7 @@ async def test_update_task_fields(authenticated_client: Client) -> None:
     await schedule.delete_group(group_id)
 
 
-async def test_group_and_task_extended_routes(
+async def test_schedule_group_and_task_routes(
     authenticated_client: Client,
 ) -> None:
     schedule = ScheduleClient(authenticated_client)
@@ -200,3 +200,53 @@ async def test_sort_placeholders_return_501(authenticated_client: Client) -> Non
         "post", "/api/file/query/schedule/sort", json={}
     )
     assert res_query.status == 501
+
+
+async def test_batch_update_task_list_transactional_rollback(
+    authenticated_client: Client,
+) -> None:
+    schedule = ScheduleClient(authenticated_client)
+
+    group_vo = await schedule.create_group("Batch Test Group")
+    assert group_vo.task_list_id is not None
+    group_id = int(group_vo.task_list_id)
+
+    task1_vo = await schedule.create_task(group_id, "Task 1", detail="Detail 1")
+    task2_vo = await schedule.create_task(group_id, "Task 2", detail="Detail 2")
+    assert task1_vo.task_id is not None
+    assert task2_vo.task_id is not None
+
+    task1_id = int(task1_vo.task_id)
+    task2_id = int(task2_vo.task_id)
+
+    # Batch update where Task 1 is valid, but Task 2 exceeds MAX_TITLE_LENGTH
+    invalid_title = "A" * 300
+    batch_payload = {
+        "taskListId": str(group_id),
+        "updateScheduleTaskList": [
+            {
+                "taskId": str(task1_id),
+                "title": "Task 1 Updated",
+                "lastModified": 1000,
+            },
+            {
+                "taskId": str(task2_id),
+                "title": invalid_title,
+                "lastModified": 1000,
+            },
+        ],
+    }
+
+    res = await authenticated_client.request(
+        "put", "/api/file/schedule/task/list", json=batch_payload
+    )
+    assert res.status == 400
+
+    # Verify Task 1 was NOT updated due to atomic rollback
+    task1_detail = await schedule.get_task(task1_id)
+    assert task1_detail.title == "Task 1"
+
+    task2_detail = await schedule.get_task(task2_id)
+    assert task2_detail.title == "Task 2"
+
+    await schedule.delete_group(group_id)
