@@ -250,3 +250,41 @@ async def test_batch_update_task_list_transactional_rollback(
     assert task2_detail.title == "Task 2"
 
     await schedule.delete_group(group_id)
+
+
+async def test_list_tasks_filtering_by_group_id(
+    authenticated_client: Client,
+) -> None:
+    schedule = ScheduleClient(authenticated_client)
+
+    group_a_vo = await schedule.create_group("Group A")
+    group_b_vo = await schedule.create_group("Group B")
+    assert group_a_vo.task_list_id is not None
+    assert group_b_vo.task_list_id is not None
+    group_a_id = int(group_a_vo.task_list_id)
+    group_b_id = int(group_b_vo.task_list_id)
+
+    task_a_vo = await schedule.create_task(group_a_id, "Task in Group A")
+    task_b_vo = await schedule.create_task(group_b_id, "Task in Group B")
+    assert task_a_vo.task_id is not None
+    assert task_b_vo.task_id is not None
+
+    # Filter by Group A
+    tasks_a = [t async for t in schedule.list_tasks(group_a_id)]
+    assert len(tasks_a) == 1
+    assert tasks_a[0].title == "Task in Group A"
+
+    # Filter by Group B
+    tasks_b = [t async for t in schedule.list_tasks(group_b_id)]
+    assert len(tasks_b) == 1
+    assert tasks_b[0].title == "Task in Group B"
+
+    # List all without group filter
+    all_tasks = [t async for t in schedule.list_tasks(group_id=None)]
+    assert len(all_tasks) == 2
+    titles = {t.title for t in all_tasks}
+    assert titles == {"Task in Group A", "Task in Group B"}
+
+    # Cleanup
+    await schedule.delete_group(group_a_id)
+    await schedule.delete_group(group_b_id)
