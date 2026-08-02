@@ -4,7 +4,9 @@ import time
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from supernote.server.constants import CATEGORY_CONTAINERS
+from supernote.server.constants import (
+    SYSTEM_CATEGORY_CONTAINER_MAP,
+)
 from supernote.server.db.models.file import RecycleFileDO, UserFileDO
 from supernote.server.exceptions import FileAlreadyExists, InvalidPath
 
@@ -22,8 +24,9 @@ class VirtualFileSystem:
     ) -> UserFileDO | None:
         """Resolve a root path segment to a directory/file node.
 
-        Checks direct children at root (directory_id=0) first. If not found,
-        checks children inside system category containers (NOTE, DOCUMENT).
+        Checks direct children at root (directory_id=0) first. If not found and the segment
+        matches a known category subfolder (Note, MyStyle, Document), checks inside its
+        explicit parent container (NOTE or DOCUMENT).
         """
         stmt = select(UserFileDO).where(
             UserFileDO.user_id == user_id,
@@ -35,21 +38,28 @@ class VirtualFileSystem:
         if node := result.scalar_one_or_none():
             return node
 
-        category_parents = select(UserFileDO.id).where(
-            UserFileDO.user_id == user_id,
-            UserFileDO.directory_id == 0,
-            UserFileDO.file_name.in_(CATEGORY_CONTAINERS),
-            UserFileDO.is_active == "Y",
-            UserFileDO.is_folder == "Y",
-        )
-        stmt = select(UserFileDO).where(
-            UserFileDO.user_id == user_id,
-            UserFileDO.directory_id.in_(category_parents),
-            UserFileDO.file_name == segment,
-            UserFileDO.is_active == "Y",
-        )
-        result = await self.db.execute(stmt)
-        return result.scalar_one_or_none()
+        if target_container := SYSTEM_CATEGORY_CONTAINER_MAP.get(segment):
+            category_parent = (
+                select(UserFileDO.id)
+                .where(
+                    UserFileDO.user_id == user_id,
+                    UserFileDO.directory_id == 0,
+                    UserFileDO.file_name == target_container,
+                    UserFileDO.is_active == "Y",
+                    UserFileDO.is_folder == "Y",
+                )
+                .scalar_subquery()
+            )
+            stmt = select(UserFileDO).where(
+                UserFileDO.user_id == user_id,
+                UserFileDO.directory_id == category_parent,
+                UserFileDO.file_name == segment,
+                UserFileDO.is_active == "Y",
+            )
+            result = await self.db.execute(stmt)
+            return result.scalar_one_or_none()
+
+        return None
 
     async def create_directory(
         self, user_id: int, parent_id: int, name: str
