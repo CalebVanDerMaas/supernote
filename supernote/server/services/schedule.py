@@ -127,6 +127,15 @@ class ScheduleService:
         due_time: int | None = None,
         recurrence: str | None = None,
         is_reminder_on: bool = False,
+        links: str | None = None,
+        sort: int | None = None,
+        sort_completed: int | None = None,
+        planer_sort: int | None = None,
+        all_sort: int | None = None,
+        all_sort_completed: int | None = None,
+        sort_time: int | None = None,
+        planer_sort_time: int | None = None,
+        all_sort_time: int | None = None,
     ) -> ScheduleTaskDO:
         """Create a new task."""
         if len(title) > MAX_TITLE_LENGTH:
@@ -144,6 +153,15 @@ class ScheduleService:
                 due_time=due_time,
                 recurrence=recurrence,
                 is_reminder_on=is_reminder_on,
+                links=links,
+                sort=sort,
+                sort_completed=sort_completed,
+                planer_sort=planer_sort,
+                all_sort=all_sort,
+                all_sort_completed=all_sort_completed,
+                sort_time=sort_time,
+                planer_sort_time=planer_sort_time,
+                all_sort_time=all_sort_time,
             )
             session.add(task)
             await session.flush()
@@ -180,8 +198,6 @@ class ScheduleService:
         self, user_id: int, task_id: int, **kwargs: Any
     ) -> ScheduleTaskDO | None:
         """Update a task."""
-        # Clean kwargs to only allow update of specific fields?
-        # For simplicity, we assume caller passes valid fields that match DO columns.
         allowed_fields = {
             "title",
             "detail",
@@ -192,6 +208,15 @@ class ScheduleService:
             "recurrence",
             "is_reminder_on",
             "task_list_id",
+            "links",
+            "sort",
+            "sort_completed",
+            "planer_sort",
+            "all_sort",
+            "all_sort_completed",
+            "sort_time",
+            "planer_sort_time",
+            "all_sort_time",
         }
         updates = {k: v for k, v in kwargs.items() if k in allowed_fields}
 

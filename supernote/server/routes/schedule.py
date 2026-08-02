@@ -203,6 +203,15 @@ async def create_task(request: web.Request) -> web.Response:
             due_time=dto.due_time,
             recurrence=dto.recurrence,
             is_reminder_on=(dto.is_reminder_on == BooleanEnum.YES),
+            links=dto.links,
+            sort=dto.sort,
+            sort_completed=dto.sort_completed,
+            planer_sort=dto.planer_sort,
+            all_sort=dto.all_sort,
+            all_sort_completed=dto.all_sort_completed,
+            sort_time=dto.sort_time,
+            planer_sort_time=dto.planer_sort_time,
+            all_sort_time=dto.all_sort_time,
         )
         return web.json_response(
             AddScheduleTaskVO(success=True, task_id=str(task.task_id)).to_dict()
@@ -245,6 +254,24 @@ async def update_task(request: web.Request) -> web.Response:
             updates["is_reminder_on"] = dto.is_reminder_on == BooleanEnum.YES
         if dto.task_list_id is not None:
             updates["task_list_id"] = int(dto.task_list_id)
+        if dto.links is not None:
+            updates["links"] = dto.links
+        if dto.sort is not None:
+            updates["sort"] = dto.sort
+        if dto.sort_completed is not None:
+            updates["sort_completed"] = dto.sort_completed
+        if dto.planer_sort is not None:
+            updates["planer_sort"] = dto.planer_sort
+        if dto.all_sort is not None:
+            updates["all_sort"] = dto.all_sort
+        if dto.all_sort_completed is not None:
+            updates["all_sort_completed"] = dto.all_sort_completed
+        if dto.sort_time is not None:
+            updates["sort_time"] = dto.sort_time
+        if dto.planer_sort_time is not None:
+            updates["planer_sort_time"] = dto.planer_sort_time
+        if dto.all_sort_time is not None:
+            updates["all_sort_time"] = dto.all_sort_time
 
         updated_task = await schedule_service.update_task(user_id, task_id, **updates)
         if not updated_task:
@@ -289,6 +316,24 @@ async def batch_update_task_list(request: web.Request) -> web.Response:
                     updates["recurrence"] = item.recurrence
                 if item.is_reminder_on is not None:
                     updates["is_reminder_on"] = item.is_reminder_on == BooleanEnum.YES
+                if item.links is not None:
+                    updates["links"] = item.links
+                if item.sort is not None:
+                    updates["sort"] = item.sort
+                if item.sort_completed is not None:
+                    updates["sort_completed"] = item.sort_completed
+                if item.planer_sort is not None:
+                    updates["planer_sort"] = item.planer_sort
+                if item.all_sort is not None:
+                    updates["all_sort"] = item.all_sort
+                if item.all_sort_completed is not None:
+                    updates["all_sort_completed"] = item.all_sort_completed
+                if item.sort_time is not None:
+                    updates["sort_time"] = item.sort_time
+                if item.planer_sort_time is not None:
+                    updates["planer_sort_time"] = item.planer_sort_time
+                if item.all_sort_time is not None:
+                    updates["all_sort_time"] = item.all_sort_time
                 updates_list.append(updates)
 
         await schedule_service.batch_update_tasks(user_id, updates_list)
@@ -353,6 +398,15 @@ async def get_task(request: web.Request) -> web.Response:
                 is_reminder_on=(
                     BooleanEnum.YES if task.is_reminder_on else BooleanEnum.NO
                 ),
+                links=task.links,
+                sort=task.sort,
+                sort_completed=task.sort_completed,
+                planer_sort=task.planer_sort,
+                all_sort=task.all_sort,
+                all_sort_completed=task.all_sort_completed,
+                sort_time=task.sort_time,
+                planer_sort_time=task.planer_sort_time,
+                all_sort_time=task.all_sort_time,
                 last_modified=task.update_time,
             ).to_dict()
         )
@@ -393,6 +447,15 @@ async def list_tasks(request: web.Request) -> web.Response:
                 is_reminder_on=(
                     BooleanEnum.YES if t.is_reminder_on else BooleanEnum.NO
                 ),
+                links=t.links,
+                sort=t.sort,
+                sort_completed=t.sort_completed,
+                planer_sort=t.planer_sort,
+                all_sort=t.all_sort,
+                all_sort_completed=t.all_sort_completed,
+                sort_time=t.sort_time,
+                planer_sort_time=t.planer_sort_time,
+                all_sort_time=t.all_sort_time,
                 last_modified=t.update_time,
             )
             for t in tasks_dos

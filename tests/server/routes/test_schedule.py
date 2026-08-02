@@ -161,6 +161,41 @@ async def test_update_task_partial_payload(authenticated_client: Client) -> None
     await schedule.delete_group(group_id)
 
 
+async def test_task_links_and_sort_fields_persistence(
+    authenticated_client: Client,
+) -> None:
+    schedule = ScheduleClient(authenticated_client)
+    group_vo = await schedule.create_group("Links Test Group")
+    assert group_vo.task_list_id is not None
+    group_id = int(group_vo.task_list_id)
+
+    # Perform raw POST with links and planerSort
+    sample_links = (
+        "eyJhcHBOYW1lIjoiTm90ZSIsInBhdGgiOiIvTm90ZS9QbGFubmVyLm5vdGUiLCJwYWdlIjo1fQ=="
+    )
+    resp = await authenticated_client.post(
+        "/api/file/schedule/task",
+        json={
+            "taskListId": str(group_id),
+            "title": "Linked Notebook Event",
+            "links": sample_links,
+            "planerSort": 42,
+        },
+    )
+    assert resp.status == 200
+    data = await resp.json()
+    task_id = data["taskId"]
+
+    # Verify GET task returns links and planerSort
+    resp_get = await authenticated_client.get(f"/api/file/schedule/task/{task_id}")
+    assert resp_get.status == 200
+    get_data = await resp_get.json()
+    assert get_data["links"] == sample_links
+    assert get_data["planerSort"] == 42
+
+    await schedule.delete_group(group_id)
+
+
 async def test_schedule_group_and_task_routes(
     authenticated_client: Client,
 ) -> None:
