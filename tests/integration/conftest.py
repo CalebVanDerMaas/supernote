@@ -1,9 +1,11 @@
 """Pytest fixtures for out-of-process integration tests."""
 
+import hashlib
 import shutil
 from collections.abc import AsyncGenerator
 from pathlib import Path
 
+import aiohttp
 import pytest
 
 from supernote.client import Supernote
@@ -19,16 +21,18 @@ async def generate_populated_v1_db_with_server(target_path: Path) -> Path:
     temp_dir = target_path.parent / "temp_seed_server"
 
     async with ServerRunner(storage_dir=temp_dir, initial_db=v1_fixture) as server:
-        admin_client = server.create_admin_client()
-        await admin_client.register(
-            "seed_user@example.com", "seedpassword123", "Seed User"
-        )
+        async with aiohttp.ClientSession() as session:
+            admin_client = server.create_admin_client(session)
+            password_md5 = hashlib.md5("seedpassword123".encode()).hexdigest()
+            await admin_client.register(
+                "seed_user@example.com", password_md5, "Seed User"
+            )
 
         async with await Supernote.login(
             "seed_user@example.com", "seedpassword123", host=server.base_url
         ) as sn:
             # Create a folder via actual client API
-            await sn.device.create_folder("/My Notes")
+            await sn.device.create_folder("/My Notes", equipment_no="WEB")
 
     # Copy the server-generated SQLite database to target_path
     generated_db = temp_dir / "system" / "supernote.db"

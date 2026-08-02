@@ -2,19 +2,30 @@
 
 Example:
     from pathlib import Path
+    import aiohttp
     from supernote.testing import ServerRunner
 
     # Run a fresh server instance asynchronously in a temporary directory
     async with ServerRunner(storage_dir=Path("/tmp/my_server")) as server:
         print(f"Server running at: {server.base_url}")
-        print(f"CLI command string: {server.get_login_cmd_str('admin@example.com', 'secret')}")
+        print(
+            f"CLI command string: {server.get_login_cmd_str('admin@example.com', 'secret')}"
+        )
 
         # Interact with the server via admin client
-        admin_client = server.create_admin_client()
+        async with aiohttp.ClientSession() as session:
+            admin_client = server.create_admin_client(session)
+            await admin_client.register("admin@example.com", "secret")
 
         # Or execute CLI commands against it asynchronously
         result = await server.run_cli(
-            "cloud", "login", "admin@example.com", "--password", "secret", "--url", server.base_url
+            "cloud",
+            "login",
+            "admin@example.com",
+            "--password",
+            "secret",
+            "--url",
+            server.base_url,
         )
         print(result.stdout)
 """
@@ -33,6 +44,7 @@ from pathlib import Path
 import aiohttp
 
 from supernote.client.admin import AdminClient
+from supernote.client.auth import ConstantAuth
 from supernote.client.client import Client
 
 DEFAULT_HOST = "127.0.0.1"
@@ -54,6 +66,7 @@ class ServerHandle:
 
     host: str
     port: int
+    mcp_port: int
     base_url: str
     proc: asyncio.subprocess.Process
     storage_dir: Path
@@ -82,13 +95,22 @@ class ServerHandle:
                 self.proc.kill()
                 await self.proc.wait()
 
-    def create_client(self, access_token: str | None = None) -> Client:
+    def create_client(
+        self,
+        session: aiohttp.ClientSession,
+        access_token: str | None = None,
+    ) -> Client:
         """Create a Python SDK Client targeting this running server instance."""
-        return Client(base_url=self.base_url, access_token=access_token)
+        auth = ConstantAuth(access_token) if access_token else None
+        return Client(session, host=self.base_url, auth=auth)
 
-    def create_admin_client(self, access_token: str | None = None) -> AdminClient:
+    def create_admin_client(
+        self,
+        session: aiohttp.ClientSession,
+        access_token: str | None = None,
+    ) -> AdminClient:
         """Create an AdminClient targeting this running server instance."""
-        return AdminClient(self.create_client(access_token=access_token))
+        return AdminClient(self.create_client(session, access_token=access_token))
 
     def get_login_cmd_str(self, email: str, password: str) -> str:
         """Return the formatted CLI shell command string for logging into this server instance.
@@ -100,7 +122,9 @@ class ServerHandle:
         Returns:
             Formatted CLI command string (e.g. `supernote cloud login email --password password --url base_url`).
         """
-        return f"supernote cloud login {email} --password {password} --url {self.base_url}"
+        return (
+            f"supernote cloud login {email} --password {password} --url {self.base_url}"
+        )
 
     async def run_cli(
         self,
@@ -158,6 +182,7 @@ class ServerRunner:
         storage_dir: Path,
         initial_db: Path | None = None,
         port: int | None = None,
+        mcp_port: int | None = None,
         host: str = DEFAULT_HOST,
         env: dict[str, str] | None = None,
         health_check_timeout: float = DEFAULT_HEALTH_CHECK_TIMEOUT,
@@ -173,6 +198,8 @@ class ServerRunner:
                 can be tested.
             port: TCP port for the server to listen on. If None, an available port is automatically
                 selected on the host interface.
+            mcp_port: TCP port for the MCP server to listen on. If None, an available port is automatically
+                selected on the host interface.
             host: Network interface host to bind to (default: "127.0.0.1").
             env: Optional environment variable overrides for the server process.
             health_check_timeout: Maximum time in seconds to wait for `/api/health` to respond
@@ -182,6 +209,7 @@ class ServerRunner:
         self.initial_db = initial_db.resolve() if initial_db else None
         self.host = host
         self.port = port if port is not None else find_free_port(self.host)
+        self.mcp_port = mcp_port if mcp_port is not None else find_free_port(self.host)
         self.health_check_timeout = health_check_timeout
         self.custom_env = env or {}
         self.handle: ServerHandle | None = None
@@ -202,8 +230,11 @@ class ServerRunner:
             **os.environ,
             "SUPERNOTE_HOST": self.host,
             "SUPERNOTE_PORT": str(self.port),
+            "SUPERNOTE_MCP_PORT": str(self.mcp_port),
             "SUPERNOTE_STORAGE_DIR": str(self.storage_dir),
             "HOME": str(self.storage_dir),
+            "XDG_CACHE_HOME": str(self.storage_dir / ".cache"),
+            "XDG_CONFIG_HOME": str(self.storage_dir / ".config"),
             "PYTHONUNBUFFERED": "1",
             **self.custom_env,
         }
@@ -219,6 +250,7 @@ class ServerRunner:
         handle = ServerHandle(
             host=self.host,
             port=self.port,
+            mcp_port=self.mcp_port,
             base_url=base_url,
             proc=proc,
             storage_dir=self.storage_dir,
@@ -228,7 +260,9 @@ class ServerRunner:
 
         # Poll health check endpoint until server is ready
         start_time = asyncio.get_running_loop().time()
-        while asyncio.get_running_loop().time() - start_time < self.health_check_timeout:
+        while (
+            asyncio.get_running_loop().time() - start_time < self.health_check_timeout
+        ):
             if proc.returncode is not None:
                 stdout_bytes, stderr_bytes = await proc.communicate()
                 stdout = stdout_bytes.decode("utf-8", errors="replace")

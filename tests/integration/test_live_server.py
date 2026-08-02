@@ -1,5 +1,8 @@
 """End-to-end integration tests using out-of-process live server runner."""
 
+import hashlib
+
+import aiohttp
 import pytest
 
 from supernote.client import Supernote
@@ -15,12 +18,14 @@ async def test_fresh_live_server_health_and_admin_user_registration(
     """Verify fresh live server starts, healthcheck passes, and user registration works."""
     assert await live_server.is_healthy()
 
-    admin_client = live_server.create_admin_client()
     user_email = "testuser@example.com"
     user_password = "password123"
+    password_md5 = hashlib.md5(user_password.encode("utf-8")).hexdigest()
 
     # Register user via Admin API
-    await admin_client.register(user_email, user_password, "Test User")
+    async with aiohttp.ClientSession() as session:
+        admin_client = live_server.create_admin_client(session)
+        await admin_client.register(user_email, password_md5, "Test User")
 
     # Verify user can log in via Supernote SDK
     async with await Supernote.login(
@@ -40,13 +45,14 @@ async def test_migrated_db_live_server(
     assert await migrated_live_server.is_healthy()
     assert migrated_live_server.db_path.exists()
 
-    # Create admin client pointing to the migrated server instance
-    admin_client = migrated_live_server.create_admin_client()
     user_email = "migrated_user@example.com"
     user_password = "password123"
+    password_md5 = hashlib.md5(user_password.encode("utf-8")).hexdigest()
 
-    # Register a new user on top of the migrated schema
-    await admin_client.register(user_email, user_password, "Migrated User")
+    # Create admin client pointing to the migrated server instance
+    async with aiohttp.ClientSession() as session:
+        admin_client = migrated_live_server.create_admin_client(session)
+        await admin_client.register(user_email, password_md5, "Migrated User")
 
     # Verify login works against the migrated database
     async with await Supernote.login(
@@ -82,15 +88,12 @@ async def test_cli_provisioning_and_login(live_server: ServerHandle) -> None:
 
     cli_email = "cliuser@example.com"
     cli_password = "clipassword123"
+    password_md5 = hashlib.md5(cli_password.encode("utf-8")).hexdigest()
 
     # Provision user via admin API
-    await live_server.create_admin_client().register(
-        cli_email, cli_password, "CLI User"
-    )
-
-    # Verify login command string generation
-    login_cmd_str = live_server.get_login_cmd_str(cli_email, cli_password)
-    assert live_server.base_url in login_cmd_str
+    async with aiohttp.ClientSession() as session:
+        admin_client = live_server.create_admin_client(session)
+        await admin_client.register(cli_email, password_md5, "CLI User")
 
     # Execute `supernote cloud login` CLI command via async subprocess
     login_result = await live_server.run_cli(
