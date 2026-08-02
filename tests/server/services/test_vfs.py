@@ -56,3 +56,30 @@ async def test_vfs_file_operations(db_session: AsyncSession) -> None:
     # Verify can't get
     node = await vfs.get_node_by_id(user_id, file_node.id)
     assert node is None
+
+
+async def test_vfs_ensure_directory_path_category_resolution(
+    db_session: AsyncSession,
+) -> None:
+    """Verify ensure_directory_path resolves 'Note' to NOTE/Note system folder."""
+    vfs = VirtualFileSystem(db_session)
+    user_id = 999
+    note_dir = await vfs.create_directory(user_id, 0, "NOTE")
+    note_subdir = await vfs.create_directory(user_id, note_dir.id, "Note")
+
+    resolved_id = await vfs.ensure_directory_path(user_id, "Note")
+    assert resolved_id == note_subdir.id
+
+
+async def test_vfs_resolve_path_category_resolution(
+    db_session: AsyncSession,
+) -> None:
+    """Verify resolve_path resolves 'Note' to NOTE/Note system folder."""
+    vfs = VirtualFileSystem(db_session)
+    user_id = 999
+    note_dir = await vfs.create_directory(user_id, 0, "NOTE")
+    note_subdir = await vfs.create_directory(user_id, note_dir.id, "Note")
+
+    node = await vfs.resolve_path(user_id, "Note")
+    assert node is not None
+    assert node.id == note_subdir.id

@@ -4,6 +4,7 @@ import time
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from supernote.server.constants import CATEGORY_CONTAINERS
 from supernote.server.db.models.file import RecycleFileDO, UserFileDO
 from supernote.server.exceptions import FileAlreadyExists, InvalidPath
 
@@ -15,6 +16,40 @@ class VirtualFileSystem:
 
     def __init__(self, db_session: AsyncSession):
         self.db = db_session
+
+    async def _resolve_root_segment(
+        self, user_id: int, segment: str
+    ) -> UserFileDO | None:
+        """Resolve a root path segment to a directory/file node.
+
+        Checks direct children at root (directory_id=0) first. If not found,
+        checks children inside system category containers (NOTE, DOCUMENT).
+        """
+        stmt = select(UserFileDO).where(
+            UserFileDO.user_id == user_id,
+            UserFileDO.directory_id == 0,
+            UserFileDO.file_name == segment,
+            UserFileDO.is_active == "Y",
+        )
+        result = await self.db.execute(stmt)
+        if node := result.scalar_one_or_none():
+            return node
+
+        category_parents = select(UserFileDO.id).where(
+            UserFileDO.user_id == user_id,
+            UserFileDO.directory_id == 0,
+            UserFileDO.file_name.in_(CATEGORY_CONTAINERS),
+            UserFileDO.is_active == "Y",
+            UserFileDO.is_folder == "Y",
+        )
+        stmt = select(UserFileDO).where(
+            UserFileDO.user_id == user_id,
+            UserFileDO.directory_id.in_(category_parents),
+            UserFileDO.file_name == segment,
+            UserFileDO.is_active == "Y",
+        )
+        result = await self.db.execute(stmt)
+        return result.scalar_one_or_none()
 
     async def create_directory(
         self, user_id: int, parent_id: int, name: str
@@ -183,15 +218,20 @@ class VirtualFileSystem:
         current_dir_id = 0
         current_node = None
 
-        for part in parts:
-            stmt = select(UserFileDO).where(
-                UserFileDO.user_id == user_id,
-                UserFileDO.directory_id == current_dir_id,
-                UserFileDO.file_name == part,
-                UserFileDO.is_active == "Y",
-            )
-            result = await self.db.execute(stmt)
-            if (node := result.scalar_one_or_none()) is None:
+        for i, part in enumerate(parts):
+            if i == 0 and current_dir_id == 0:
+                node = await self._resolve_root_segment(user_id, part)
+            else:
+                stmt = select(UserFileDO).where(
+                    UserFileDO.user_id == user_id,
+                    UserFileDO.directory_id == current_dir_id,
+                    UserFileDO.file_name == part,
+                    UserFileDO.is_active == "Y",
+                )
+                result = await self.db.execute(stmt)
+                node = result.scalar_one_or_none()
+
+            if node is None:
                 return None
 
             current_node = node
@@ -231,15 +271,22 @@ class VirtualFileSystem:
         parts = [p for p in path.strip("/").split("/") if p]
         current_dir_id = 0
 
-        for part in parts:
-            stmt = select(UserFileDO).where(
-                UserFileDO.user_id == user_id,
-                UserFileDO.directory_id == current_dir_id,
-                UserFileDO.file_name == part,
-                UserFileDO.is_active == "Y",
-            )
-            result = await self.db.execute(stmt)
-            if node := result.scalar_one_or_none():
+        for i, part in enumerate(parts):
+            node: UserFileDO | None = None
+            if i == 0 and current_dir_id == 0:
+                node = await self._resolve_root_segment(user_id, part)
+
+            if node is None:
+                stmt = select(UserFileDO).where(
+                    UserFileDO.user_id == user_id,
+                    UserFileDO.directory_id == current_dir_id,
+                    UserFileDO.file_name == part,
+                    UserFileDO.is_active == "Y",
+                )
+                result = await self.db.execute(stmt)
+                node = result.scalar_one_or_none()
+
+            if node:
                 if node.is_folder != "Y":
                     raise InvalidPath(f"{part} is a file")
                 current_dir_id = node.id
