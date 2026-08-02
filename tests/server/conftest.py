@@ -148,9 +148,15 @@ def coordination_service(
 
 
 @pytest.fixture
-async def test_users() -> list[str]:
+def additional_users() -> list[str]:
+    """Additional test users to create. Can be overridden by test modules."""
+    return []
+
+
+@pytest.fixture
+async def test_users(additional_users: list[str]) -> list[str]:
     """Fixture with test users to create."""
-    return [TEST_USERNAME]
+    return [TEST_USERNAME, *additional_users]
 
 
 @pytest.fixture
@@ -169,24 +175,6 @@ async def create_test_user(
         )
         assert result.id
         assert result.is_active
-
-
-@pytest.fixture
-async def secondary_test_user(
-    user_service: UserService,
-) -> str:
-    """Create a secondary test user in the database for multi-user isolation tests."""
-    user_email = "a@example.com"
-    result = await user_service.create_user(
-        UserRegisterDTO(
-            email=user_email,
-            password=hashlib.md5(TEST_PASSWORD.encode("utf-8")).hexdigest(),
-            user_name="Secondary Test User",
-        )
-    )
-    assert result.id
-    assert result.is_active
-    return user_email
 
 
 @pytest.fixture(name="auth_headers")
