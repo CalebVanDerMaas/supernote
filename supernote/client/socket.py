@@ -86,7 +86,7 @@ class SupernoteSocketClient:
         await self._sio.connect(
             url,
             socketio_path="socket.io",
-            transports=["websocket", "polling"],
+            transports=["polling", "websocket"],
             wait_timeout=10,
         )
 
