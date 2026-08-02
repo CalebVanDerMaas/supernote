@@ -101,7 +101,6 @@ warn_return_any = true
 warn_unreachable = true
 
 [tool.pytest.ini_options]
-addopts = "-n auto"
 asyncio_mode = "auto"
 # Ignore pytest warnings in upstream libraries
 filterwarnings = [
@@ -123,5 +122,10 @@ unresolved-import = "ignore"
 
 [dependency-groups]
 dev = [
+    "freezegun>=1.5.5",
+    "pytest-aiohttp>=1.1.1",
+    "pytest-asyncio>=1.4.0",
+    "pytest-cov>=7.1.0",
     "pytest-xdist>=3.8.0",
+    "syrupy>=5.5.3",
 ]
