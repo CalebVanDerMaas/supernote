@@ -1,7 +1,7 @@
 """Tests for top-level supernote package initialization, exports, and repository structure conformance."""
 
 from pathlib import Path
-import pytest
+
 import supernote
 
 # Repository paths
