@@ -1,3 +1,6 @@
+import base64
+import json
+
 import pytest
 from aiohttp.test_utils import TestClient
 
@@ -192,6 +195,56 @@ async def test_task_links_and_sort_fields_persistence(
     get_data = await resp_get.json()
     assert get_data["links"] == sample_links
     assert get_data["planerSort"] == 42
+    await schedule.delete_group(group_id)
+
+
+async def test_task_notebook_links_encoding_and_decoding(
+    authenticated_client: Client,
+) -> None:
+    """Dedicated test verifying Base64 JSON notebook links round-trip persistence."""
+    schedule = ScheduleClient(authenticated_client)
+    group_vo = await schedule.create_group("Notebook Links Group")
+    assert group_vo.task_list_id is not None
+    group_id = int(group_vo.task_list_id)
+
+    # Construct explicit Supernote notebook link JSON payload
+    link_payload = {
+        "appName": "Note",
+        "fileId": "739213260577833138",
+        "path": "/Note/2026_Executive_Planner.note",
+        "page": 24,
+        "pageId": "p24_guid_9823749823",
+    }
+    encoded_links = base64.b64encode(json.dumps(link_payload).encode()).decode()
+
+    # Create task with encoded notebook link
+    resp_create = await authenticated_client.post(
+        "/api/file/schedule/task",
+        json={
+            "taskListId": str(group_id),
+            "title": "Quarterly Planning Meeting",
+            "detail": "Action item created from page 24 of Executive Planner",
+            "importance": "high",
+            "links": encoded_links,
+        },
+    )
+    assert resp_create.status == 200
+    create_data = await resp_create.json()
+    task_id = create_data["taskId"]
+
+    # Verify GET task returns exact links string and decodes to match original payload
+    resp_get = await authenticated_client.get(f"/api/file/schedule/task/{task_id}")
+    assert resp_get.status == 200
+    get_data = await resp_get.json()
+
+    retrieved_links = get_data["links"]
+    assert retrieved_links == encoded_links
+
+    decoded_json = json.loads(base64.b64decode(retrieved_links).decode())
+    assert decoded_json == link_payload
+    assert decoded_json["appName"] == "Note"
+    assert decoded_json["path"] == "/Note/2026_Executive_Planner.note"
+    assert decoded_json["page"] == 24
 
     await schedule.delete_group(group_id)
 
