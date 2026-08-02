@@ -73,7 +73,7 @@ async def test_fresh_live_server_e2e(live_server: ServerHandle, snapshot) -> Non
 
 @pytest.mark.asyncio
 async def test_migrated_live_server_e2e(
-    populated_migrated_live_server: ServerHandle,
+    populated_migrated_live_server: ServerHandle, snapshot
 ) -> None:
     """Verify live server starts with legacy v1 DB, migrates to head, and serves pre-existing users."""
     assert await populated_migrated_live_server.is_healthy()
@@ -86,5 +86,9 @@ async def test_migrated_live_server_e2e(
         seed_email, seed_password, host=populated_migrated_live_server.base_url
     ) as sn:
         assert sn.token is not None
-        files = await sn.device.list_folder("/")
-        assert files is not None
+        folder_vo = await sn.device.list_folder("/")
+        folder_dict = folder_vo.to_dict()
+        for entry in folder_dict.get("entries", []):
+            entry["id"] = "DYNAMIC_ID"
+            entry["lastUpdateTime"] = 0
+        assert folder_dict == snapshot(name="migrated_live_server_root_folder_list")
