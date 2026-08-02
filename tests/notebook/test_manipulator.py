@@ -193,6 +193,7 @@ def test_merge_mismatched_header_property() -> None:
     notebook2 = _prepare_notebook_for_reconstruct(load_notebook(str(SAMPLE_NOTE_PATH)))
 
     metadata2 = notebook2.get_metadata()
+    assert metadata2.header is not None
     metadata2.header["DEVICE_DPI"] = "999"
     with pytest.raises(
         ValueError, match="<DEVICE_DPI> property must be same between merging files"
@@ -230,13 +231,15 @@ def test_verify_header_property_helper() -> None:
 def test_notebook_page_addition() -> None:
     notebook = _prepare_notebook_for_reconstruct(load_notebook(str(SAMPLE_NOTE_PATH)))
     orig_pages = notebook.get_total_pages()
+    meta = notebook.get_metadata()
+    assert meta.pages is not None
 
     # Duplicate first page and add to pages list & metadata
     first_page = copy.deepcopy(notebook.get_page(0))
-    first_meta_page = copy.deepcopy(notebook.get_metadata().pages[0])
+    first_meta_page = copy.deepcopy(meta.pages[0])
 
     notebook.pages.append(first_page)
-    notebook.get_metadata().pages.append(first_meta_page)
+    meta.pages.append(first_meta_page)
 
     reconstructed_bytes = reconstruct(notebook)
     stream = io.BytesIO(reconstructed_bytes)
@@ -254,9 +257,12 @@ def test_notebook_page_deletion() -> None:
     orig_pages = multi_page_nb.get_total_pages()
     assert orig_pages > 1
 
+    meta = multi_page_nb.get_metadata()
+    assert meta.pages is not None
+
     # Delete first page
     multi_page_nb.pages.pop(0)
-    multi_page_nb.get_metadata().pages.pop(0)
+    meta.pages.pop(0)
 
     reconstructed_bytes = reconstruct(multi_page_nb)
     reloaded = load(io.BytesIO(reconstructed_bytes))
@@ -270,14 +276,17 @@ def test_notebook_page_reordering() -> None:
     multi_page_nb = load(io.BytesIO(merged_bytes))
 
     assert multi_page_nb.get_total_pages() >= 2
+    meta = multi_page_nb.get_metadata()
+    assert meta.pages is not None
+
     # Swap first two pages
     multi_page_nb.pages[0], multi_page_nb.pages[1] = (
         multi_page_nb.pages[1],
         multi_page_nb.pages[0],
     )
-    multi_page_nb.get_metadata().pages[0], multi_page_nb.get_metadata().pages[1] = (
-        multi_page_nb.get_metadata().pages[1],
-        multi_page_nb.get_metadata().pages[0],
+    meta.pages[0], meta.pages[1] = (
+        meta.pages[1],
+        meta.pages[0],
     )
 
     reconstructed_bytes = reconstruct(multi_page_nb)
