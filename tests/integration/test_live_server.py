@@ -67,7 +67,6 @@ async def test_fresh_live_server_e2e(live_server: ServerHandle, snapshot) -> Non
         folder_dict = folder_vo.to_dict()
         for entry in folder_dict.get("entries", []):
             entry["id"] = "DYNAMIC_ID"
-            entry["last_update_time"] = 0
             entry["lastUpdateTime"] = 0
         assert folder_dict == snapshot(name="live_server_note_folder_list")
 

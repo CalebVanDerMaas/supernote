@@ -7,7 +7,6 @@
         'id': 'DYNAMIC_ID',
         'is_downloadable': True,
         'lastUpdateTime': 0,
-        'last_update_time': 0,
         'name': '20251207_221454.note',
         'parent_path': 'Note',
         'path_display': 'Note/20251207_221454.note',
