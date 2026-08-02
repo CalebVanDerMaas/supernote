@@ -59,3 +59,26 @@ async def test_query_by_path_not_found(device_client: DeviceClient) -> None:
     )
     assert data.entries_vo is None
     assert data.equipment_no == "SN123"
+
+
+async def test_query_by_mismatched_container_path(
+    device_client: DeviceClient,
+) -> None:
+    """Verify querying DOCUMENT/Note/test.note does NOT match NOTE/Note/test.note."""
+    content = b"mismatched path test"
+    upload_resp = await device_client.upload_content(
+        "NOTE/Note/test.note", content, equipment_no="SN123"
+    )
+    assert upload_resp.id
+
+    # Querying via wrong container path DOCUMENT/Note/test.note must return None
+    data = await device_client.query_by_path(
+        path="DOCUMENT/Note/test.note", equipment_no="SN123"
+    )
+    assert data.entries_vo is None
+
+    # Querying via wrong container folder DOCUMENT/Note must return None
+    folder_data = await device_client.query_by_path(
+        path="DOCUMENT/Note", equipment_no="SN123"
+    )
+    assert folder_data.entries_vo is None
