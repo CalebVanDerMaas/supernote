@@ -107,6 +107,7 @@ def server_config(
     storage_root: Path,
     proxy_mode: str | None,
     configured_base_url: str | None,
+    server_port: int,
     mcp_port: int,
 ) -> ServerConfig:
     """Create a ServerConfig object for testing."""
@@ -114,7 +115,7 @@ def server_config(
         host="127.0.0.1",
         trace_log_file=mock_trace_log,
         storage_dir=str(storage_root),
-        port=8080,
+        port=server_port,
         mcp_port=mcp_port,
         proxy_mode=proxy_mode,
         _base_url=configured_base_url,
@@ -298,6 +299,9 @@ async def client_fixture(
     coordination_service: SqliteCoordinationService,
 ) -> TestClient:
     """Create a test client for server tests."""
+    # Patch run_migrations during test client setup because _session_manager_shared
+    # already initializes all database schema tables at session start via create_all_tables().
+    # Full Alembic migration execution is separately verified in tests/server/db/test_migrations.py.
     with patch("supernote.server.app.run_migrations"):
         app = create_app(server_config)
         return await aiohttp_client(app)
