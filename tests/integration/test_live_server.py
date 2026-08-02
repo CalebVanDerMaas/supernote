@@ -13,7 +13,7 @@ pytestmark = pytest.mark.integration
 
 
 @pytest.mark.asyncio
-async def test_fresh_live_server_e2e(live_server: ServerHandle) -> None:
+async def test_fresh_live_server_e2e(live_server: ServerHandle, snapshot) -> None:
     """Verify fresh live server health, admin user registration, SDK login, and CLI commands."""
     assert await live_server.is_healthy()
 
@@ -61,8 +61,12 @@ async def test_fresh_live_server_e2e(live_server: ServerHandle) -> None:
             "/Note/20251207_221454.note", test_note.read_bytes(), equipment_no="WEB"
         )
         folder_vo = await sn.device.list_folder("/Note")
-        assert folder_vo is not None and folder_vo.entries is not None
-        assert any(e.name == "20251207_221454.note" for e in folder_vo.entries)
+        folder_dict = folder_vo.to_dict()
+        for entry in folder_dict.get("entries", []):
+            entry["id"] = "DYNAMIC_ID"
+            entry["last_update_time"] = 0
+            entry["lastUpdateTime"] = 0
+        assert folder_dict == snapshot(name="live_server_note_folder_list")
 
 
 @pytest.mark.asyncio

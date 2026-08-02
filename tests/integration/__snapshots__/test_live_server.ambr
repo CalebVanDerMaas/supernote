@@ -1,0 +1,21 @@
+# serializer version: 1
+# name: test_fresh_live_server_e2e[live_server_note_folder_list]
+  dict({
+    'entries': list([
+      dict({
+        'content_hash': 'e8cd957f19e69d961b461d2ca80fa3c5',
+        'id': 'DYNAMIC_ID',
+        'is_downloadable': True,
+        'lastUpdateTime': 0,
+        'last_update_time': 0,
+        'name': '20251207_221454.note',
+        'parent_path': 'Note',
+        'path_display': 'Note/20251207_221454.note',
+        'size': 8695,
+        'tag': 'file',
+      }),
+    ]),
+    'equipmentNo': 'WEB',
+    'success': True,
+  })
+# ---
