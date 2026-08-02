@@ -1,6 +1,7 @@
 """End-to-end integration tests using out-of-process live server runner."""
 
 import hashlib
+from pathlib import Path
 
 import aiohttp
 import pytest
@@ -20,12 +21,12 @@ async def test_fresh_live_server_e2e(live_server: ServerHandle) -> None:
     user_password = "password123"
     password_md5 = hashlib.md5(user_password.encode("utf-8")).hexdigest()
 
-    # 1. Register user via Admin API
+    # Register user via Admin API
     async with aiohttp.ClientSession() as session:
         admin_client = live_server.create_admin_client(session)
         await admin_client.register(user_email, password_md5, "Test User")
 
-    # 2. Verify SDK login and folder listing
+    # Verify SDK login and folder listing
     async with await Supernote.login(
         user_email, user_password, host=live_server.base_url
     ) as sn:
@@ -33,7 +34,7 @@ async def test_fresh_live_server_e2e(live_server: ServerHandle) -> None:
         files = await sn.device.list_folder("/")
         assert files is not None
 
-    # 3. Execute `supernote cloud login` CLI command via subprocess
+    # Execute `supernote cloud login` CLI command via subprocess
     login_result = await live_server.run_cli(
         "cloud",
         "login",
@@ -46,9 +47,22 @@ async def test_fresh_live_server_e2e(live_server: ServerHandle) -> None:
     assert login_result.returncode == 0, f"Login failed: {login_result.stderr}"
     assert "Login successful" in login_result.stdout
 
-    # 4. Execute `supernote cloud ls` CLI command using cached credentials
+    # Execute `supernote cloud ls` CLI command using cached credentials
     ls_result = await live_server.run_cli("cloud", "ls")
     assert ls_result.returncode == 0, f"ls failed: {ls_result.stderr}"
+
+    # Upload test note file via SDK and verify it exists on server
+    test_note = Path("tests/testdata/20251207_221454.note").absolute()
+    assert test_note.exists()
+    async with await Supernote.login(
+        user_email, user_password, host=live_server.base_url
+    ) as sn:
+        await sn.device.upload_content(
+            "/Note/20251207_221454.note", test_note.read_bytes(), equipment_no="WEB"
+        )
+        folder_vo = await sn.device.list_folder("/Note")
+        assert folder_vo is not None and folder_vo.entries is not None
+        assert any(e.name == "20251207_221454.note" for e in folder_vo.entries)
 
 
 @pytest.mark.asyncio
