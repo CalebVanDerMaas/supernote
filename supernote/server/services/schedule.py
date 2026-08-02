@@ -48,9 +48,57 @@ class ScheduleService:
             result = await session.execute(stmt)
             return list(result.scalars().all())
 
+    async def get_group(
+        self, user_id: int, group_id: int
+    ) -> ScheduleTaskGroupDO | None:
+        """Get a task group by ID."""
+        async with self.session_manager.session() as session:
+            stmt = select(ScheduleTaskGroupDO).where(
+                ScheduleTaskGroupDO.user_id == user_id,
+                ScheduleTaskGroupDO.task_list_id == group_id,
+            )
+            result = await session.execute(stmt)
+            return result.scalar_one_or_none()
+
+    async def update_group(
+        self, user_id: int, group_id: int, title: str
+    ) -> ScheduleTaskGroupDO | None:
+        """Update a task group title."""
+        if len(title) > MAX_TITLE_LENGTH:
+            raise ValueError("Title is too long")
+        async with self.session_manager.session() as session:
+            stmt = (
+                update(ScheduleTaskGroupDO)
+                .where(
+                    ScheduleTaskGroupDO.user_id == user_id,
+                    ScheduleTaskGroupDO.task_list_id == group_id,
+                )
+                .values(title=title)
+                .execution_options(synchronize_session="fetch")
+            )
+            await session.execute(stmt)
+            await session.commit()
+
+            stmt_get = select(ScheduleTaskGroupDO).where(
+                ScheduleTaskGroupDO.user_id == user_id,
+                ScheduleTaskGroupDO.task_list_id == group_id,
+            )
+            result = await session.execute(stmt_get)
+            return result.scalar_one_or_none()
+
+    async def clear_group(self, user_id: int, group_id: int) -> bool:
+        """Clear all tasks within a task group."""
+        async with self.session_manager.session() as session:
+            stmt = delete(ScheduleTaskDO).where(
+                ScheduleTaskDO.user_id == user_id,
+                ScheduleTaskDO.task_list_id == group_id,
+            )
+            await session.execute(stmt)
+            await session.commit()
+            return True
+
     async def delete_group(self, user_id: int, group_id: int) -> bool:
         """Delete a task group. Returns True if found and deleted."""
-        # TODO: Handle cascade delete of tasks?
         # For now, simplistic delete.
         async with self.session_manager.session() as session:
             stmt = delete(ScheduleTaskGroupDO).where(
@@ -97,6 +145,16 @@ class ScheduleService:
             await session.commit()
             await session.refresh(task)
             return task
+
+    async def get_task(self, user_id: int, task_id: int) -> ScheduleTaskDO | None:
+        """Get a task by ID."""
+        async with self.session_manager.session() as session:
+            stmt = select(ScheduleTaskDO).where(
+                ScheduleTaskDO.user_id == user_id,
+                ScheduleTaskDO.task_id == task_id,
+            )
+            result = await session.execute(stmt)
+            return result.scalar_one_or_none()
 
     async def list_tasks(
         self,
