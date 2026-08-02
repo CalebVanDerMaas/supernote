@@ -53,6 +53,7 @@ from .services.schedule import ScheduleService
 from .services.search import SearchService
 from .services.summary import SummaryService
 from .services.user import UserService
+from .socket import setup_socketio
 from .utils.hashing import get_md5_hash
 from .utils.prompt_loader import PROMPT_LOADER
 from .utils.rate_limit import RateLimiter
@@ -391,6 +392,9 @@ def create_app(config: ServerConfig) -> web.Application:
     app.add_routes(schedule.routes)
     app.add_routes(summary.routes)
     app.add_routes(extended.routes)
+
+    # Attach Socket.IO real-time server manager
+    setup_socketio(app, config)
 
     # Serve static frontend files
     static_path = Path(str(importlib.resources.files("supernote.server") / "static"))
