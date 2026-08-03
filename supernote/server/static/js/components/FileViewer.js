@@ -1,4 +1,4 @@
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { convertNoteToPng, fetchTranscript, fetchSummaries } from '../api/client.js';
 
 export default {
@@ -56,6 +56,51 @@ export default {
             }
         };
 
+        const formattedTranscriptPages = computed(() => {
+            if (!realTranscript.value) return [];
+            const rawPages = realTranscript.value.split(/--- Page (\d+) ---/);
+            const result = [];
+
+            if (rawPages.length > 1) {
+                for (let i = 1; i < rawPages.length; i += 2) {
+                    const pageNum = rawPages[i];
+                    let content = rawPages[i + 1] || '';
+                    content = content
+                        .replace(/Notebook Filename:[^\n]*/gi, '')
+                        .replace(/Notebook Created:[^\n]*/gi, '')
+                        .replace(/Page ID:[^\n]*/gi, '')
+                        .replace(/Page Date \(Inferred\):[^\n]*/gi, '')
+                        .replace(/^---$/gm, '')
+                        .trim();
+                    if (content) {
+                        result.push({ pageNum, content });
+                    }
+                }
+            } else {
+                const cleanContent = realTranscript.value
+                    .replace(/Notebook Filename:[^\n]*/gi, '')
+                    .replace(/Notebook Created:[^\n]*/gi, '')
+                    .replace(/Page ID:[^\n]*/gi, '')
+                    .replace(/Page Date \(Inferred\):[^\n]*/gi, '')
+                    .replace(/^---$/gm, '')
+                    .trim();
+                if (cleanContent) {
+                    result.push({ pageNum: 1, content: cleanContent });
+                }
+            }
+            return result;
+        });
+
+        const formatMarkdown = (text) => {
+            if (!text) return '';
+            return text
+                .replace(/\\n/g, '\n')
+                .replace(/^## (.*$)/gim, '<h3 class="font-bold text-xs text-indigo-700 dark:text-indigo-300 mt-2 mb-1">$1</h3>')
+                .replace(/^### (.*$)/gim, '<h4 class="font-bold text-[11px] text-slate-800 dark:text-slate-200 mt-1.5 mb-0.5">$1</h4>')
+                .replace(/^\- (.*$)/gim, '<li class="ml-3 list-disc text-slate-700 dark:text-slate-300 my-0.5">$1</li>')
+                .replace(/\n/g, '<br/>');
+        };
+
         onMounted(loadNoteContent);
 
         return {
@@ -66,7 +111,9 @@ export default {
             activeRightTab,
             isMobileSidePanelOpen,
             realTranscript,
-            realSummaries
+            realSummaries,
+            formattedTranscriptPages,
+            formatMarkdown
         };
     },
     template: `
@@ -163,9 +210,17 @@ export default {
                         Fetching OCR transcript...
                     </div>
 
-                    <div v-else-if="realTranscript"
-                        class="bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 font-mono text-xs text-slate-800 dark:text-slate-200 whitespace-pre-wrap leading-relaxed select-text">
-                        {{ realTranscript }}
+                    <div v-else-if="formattedTranscriptPages.length > 0" class="space-y-3">
+                        <div v-for="page in formattedTranscriptPages" :key="page.pageNum"
+                            class="bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800">
+                            <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-200/60 dark:border-slate-700/60">
+                                <span class="text-xs font-bold text-indigo-600 dark:text-indigo-400">Page {{ page.pageNum }}</span>
+                                <span class="text-[10px] text-slate-400 font-mono">OCR Handwriting</span>
+                            </div>
+                            <p class="font-sans text-xs text-slate-800 dark:text-slate-200 whitespace-pre-wrap leading-relaxed select-text">
+                                {{ page.content }}
+                            </p>
+                        </div>
                     </div>
 
                     <div v-else class="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-xl border border-slate-200/80 dark:border-slate-800 text-center text-xs text-slate-400">
@@ -182,9 +237,9 @@ export default {
 
                     <div v-if="realSummaries.length > 0" class="space-y-3">
                         <div v-for="s in realSummaries" :key="s.id"
-                            class="p-3 bg-indigo-50/60 dark:bg-indigo-950/40 rounded-xl border border-indigo-100 dark:border-indigo-900/60 text-xs text-slate-800 dark:text-slate-200 leading-relaxed">
-                            <p class="font-bold text-indigo-700 dark:text-indigo-300 mb-1">{{ s.title || 'Summary' }}</p>
-                            {{ s.content || s.summary }}
+                            class="p-3.5 bg-indigo-50/60 dark:bg-indigo-950/40 rounded-xl border border-indigo-100 dark:border-indigo-900/60 text-xs text-slate-800 dark:text-slate-200 leading-relaxed">
+                            <p v-if="s.title" class="font-bold text-indigo-700 dark:text-indigo-300 mb-1.5">{{ s.title }}</p>
+                            <div class="prose prose-xs max-w-none text-slate-800 dark:text-slate-200" v-html="formatMarkdown(s.content || s.summary)"></div>
                         </div>
                     </div>
 
