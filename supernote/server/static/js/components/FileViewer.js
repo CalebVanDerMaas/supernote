@@ -113,7 +113,7 @@ export default {
                     <div v-for="(page, idx) in pages" :key="page.pageNo"
                         class="bg-white dark:bg-slate-900 rounded-2xl shadow-md border border-slate-200/80 dark:border-slate-800 overflow-hidden">
                         <div class="border-b border-slate-100 dark:border-slate-800 px-4 py-2 bg-slate-50 dark:bg-slate-800/50 flex justify-between items-center text-xs text-slate-400 font-mono">
-                            <span>Page {{ page.pageNo }} of {{ pages.length }}</span>
+                            <span>Page {{ idx + 1 }} of {{ pages.length }}</span>
                             <span class="text-indigo-600 dark:text-indigo-400 font-semibold">Dot Grid Canvas</span>
                         </div>
                         <img :src="page.url" loading="lazy" class="w-full h-auto block" alt="Handwriting Page" />
