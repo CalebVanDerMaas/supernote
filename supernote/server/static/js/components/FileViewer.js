@@ -38,10 +38,10 @@ export default {
                     fetchSummaries(props.file.id).catch(() => [])
                 ]);
 
-                if (transcriptData && transcriptData.transcript) {
-                    realTranscript.value = transcriptData.transcript;
-                } else if (transcriptData && transcriptData.text) {
-                    realTranscript.value = transcriptData.text;
+                if (typeof transcriptData === 'string') {
+                    realTranscript.value = transcriptData;
+                } else if (transcriptData && (transcriptData.transcript || transcriptData.text)) {
+                    realTranscript.value = transcriptData.transcript || transcriptData.text;
                 }
 
                 if (summariesData && Array.isArray(summariesData)) {
