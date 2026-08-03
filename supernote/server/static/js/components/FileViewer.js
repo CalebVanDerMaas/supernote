@@ -1,4 +1,4 @@
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { convertNoteToPng, fetchTranscript, fetchSummaries } from '../api/client.js';
 
 export default {
@@ -57,6 +57,9 @@ export default {
         };
 
         onMounted(loadNoteContent);
+        watch(() => props.file?.id, (newId) => {
+            if (newId) loadNoteContent();
+        });
 
         return {
             pages,
