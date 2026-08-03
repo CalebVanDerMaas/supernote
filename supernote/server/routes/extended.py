@@ -247,8 +247,6 @@ async def handle_extended_ai_status(request: web.Request) -> web.Response:
             "hasApiKey": has_api_key,
             "ocrEnabled": has_api_key,
             "vectorSearchEnabled": has_api_key,
-            "model": getattr(config, "gemini_ocr_model", "gemini-3.6-flash")
-            if config
-            else "gemini-3.6-flash",
+            "model": getattr(config, "gemini_ocr_model", None) if config else None,
         }
     )
