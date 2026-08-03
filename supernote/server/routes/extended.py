@@ -219,12 +219,6 @@ async def handle_extended_transcript(request: web.Request) -> web.Response:
             end_index=req_dto.end_index,
         )
 
-        if transcript is None:
-            return web.json_response(
-                {"error": f"No transcript found for notebook {req_dto.file_id}"},
-                status=404,
-            )
-
         return web.json_response(
             WebTranscriptResponseVO(transcript=transcript).to_dict()
         )
