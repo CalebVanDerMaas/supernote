@@ -202,8 +202,6 @@ class SearchService:
                 )
                 return None
 
-            file_name = file_do.file_name
-
             # Fetch content
             content_stmt = select(NotePageContentDO).where(
                 NotePageContentDO.file_id == file_id
@@ -240,7 +238,7 @@ class SearchService:
                 metadata = format_page_metadata(
                     page_index=p.page_index,
                     page_id=p.page_id,
-                    file_name=file_name,
+                    file_name=file_do.file_name,
                     notebook_create_time=file_do.create_time,
                     include_section_divider=True,
                 )
