@@ -1,5 +1,15 @@
 #!/usr/bin/env bash
 # script/server: Start development server
+#
+# Usage:
+#   ./script/server                # Runs in default Ephemeral Mode (temporary storage)
+#   ./script/server --persistent   # Runs in Persistent Mode (saves state to storage/)
+#   ./script/server -p             # Short flag for persistent mode
+#
+# Environment Variables:
+#   SUPERNOTE_PORT          # Port to bind server (default: 8080)
+#   SUPERNOTE_STORAGE_DIR   # Storage directory for persistent mode (default: storage)
+#   SUPERNOTE_JWT_SECRET    # JWT secret key for authentication
 
 set -e
 
@@ -14,23 +24,30 @@ fi
 export SUPERNOTE_JWT_SECRET="${SUPERNOTE_JWT_SECRET:-supernote_dev_secret_key}"
 export SUPERNOTE_PORT="${SUPERNOTE_PORT:-8080}"
 
-IS_EPHEMERAL=0
+IS_PERSISTENT=0
+FORWARDS=()
+
 for arg in "$@"; do
-  if [ "$arg" = "--ephemeral" ]; then
-    IS_EPHEMERAL=1
-    break
+  if [ "$arg" = "--persistent" ] || [ "$arg" = "-p" ]; then
+    IS_PERSISTENT=1
+  else
+    FORWARDS+=("$arg")
   fi
 done
 
-if [ "$IS_EPHEMERAL" -eq 1 ]; then
-  echo "==> Starting development server in ephemeral mode (temporary storage)..."
-else
+if [ "$IS_PERSISTENT" -eq 1 ]; then
   export SUPERNOTE_STORAGE_DIR="${SUPERNOTE_STORAGE_DIR:-storage}"
   echo "==> Starting development server in persistent mode (${SUPERNOTE_STORAGE_DIR})..."
-fi
-
-if command -v uv >/dev/null 2>&1; then
-  uv run supernote serve "$@"
+  if command -v uv >/dev/null 2>&1; then
+    uv run supernote serve "${FORWARDS[@]}"
+  else
+    supernote serve "${FORWARDS[@]}"
+  fi
 else
-  supernote serve "$@"
+  echo "==> Starting development server in ephemeral mode (temporary storage)..."
+  if command -v uv >/dev/null 2>&1; then
+    uv run supernote serve --ephemeral "${FORWARDS[@]}"
+  else
+    supernote serve --ephemeral "${FORWARDS[@]}"
+  fi
 fi
