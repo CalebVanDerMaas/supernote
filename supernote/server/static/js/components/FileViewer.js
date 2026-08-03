@@ -45,7 +45,7 @@ export default {
                 }
 
                 if (summariesData && Array.isArray(summariesData)) {
-                    realSummaries.value = summariesData;
+                    realSummaries.value = summariesData.filter(s => (s.dataSource || '').toUpperCase() !== 'OCR');
                 }
             } catch (e) {
                 console.error("Failed to load notebook content:", e);
