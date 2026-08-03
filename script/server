@@ -11,12 +11,26 @@ if [ -f .env ]; then
   set +o allexport
 fi
 
-echo "==> Starting ephemeral server..."
-
 export SUPERNOTE_JWT_SECRET="${SUPERNOTE_JWT_SECRET:-supernote_dev_secret_key}"
+export SUPERNOTE_PORT="${SUPERNOTE_PORT:-8080}"
+
+IS_EPHEMERAL=0
+for arg in "$@"; do
+  if [ "$arg" = "--ephemeral" ]; then
+    IS_EPHEMERAL=1
+    break
+  fi
+done
+
+if [ "$IS_EPHEMERAL" -eq 1 ]; then
+  echo "==> Starting development server in ephemeral mode (temporary storage)..."
+else
+  export SUPERNOTE_STORAGE_DIR="${SUPERNOTE_STORAGE_DIR:-storage}"
+  echo "==> Starting development server in persistent mode (${SUPERNOTE_STORAGE_DIR})..."
+fi
 
 if command -v uv >/dev/null 2>&1; then
-  uv run supernote serve --ephemeral "$@"
+  uv run supernote serve "$@"
 else
-  supernote serve --ephemeral "$@"
+  supernote serve "$@"
 fi
