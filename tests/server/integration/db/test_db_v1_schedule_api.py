@@ -87,7 +87,7 @@ async def test_load_existing_schedule_database_via_api(tmp_path: Path) -> None:
 
         # 3. Retrieve Individual Task by ID via API
         assert milk_task.task_id is not None
-        task1_detail = await schedule_client.get_task(int(milk_task.task_id))
+        task1_detail = await schedule_client.get_task(milk_task.task_id)
         assert task1_detail.success is True
         assert task1_detail.task_id == "744362741170438528"
         assert task1_detail.title == "Buy Milk Before Upgrade"
