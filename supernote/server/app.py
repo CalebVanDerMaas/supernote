@@ -172,7 +172,7 @@ async def socketio_compat_middleware(
 ) -> web.StreamResponse:
     """Rewrite Socket.IO requests query parameters from EIO=3 (Engine.IO v3) to EIO=4 for protocol compatibility."""
     if request.path.startswith("/socket.io/") and request.query.get("EIO") == "3":
-        new_query = request.query.copy()
+        new_query = dict(request.query)
         new_query["EIO"] = "4"
         request = request.clone(rel_url=request.rel_url.with_query(new_query))
     return await handler(request)
