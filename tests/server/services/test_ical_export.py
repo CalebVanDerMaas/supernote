@@ -65,9 +65,7 @@ async def test_export_calendar_tasks_roundtrip(
         detail="Run schema migrations first",
         status="completed",
     )
-    await schedule_service.update_task(
-        user_id, task2.id, completed_time=1722646800000
-    )
+    await schedule_service.update_task(user_id, task2.id, completed_time=1722646800000)
 
     # Export calendar for user
     ics_text = await ical_export_service.export_calendar(user_id)

@@ -65,9 +65,7 @@ async def create_group(request: web.Request) -> web.Response:
 
         group = await schedule_service.create_group(user_id, dto.title)
         return web.json_response(
-            AddScheduleTaskGroupVO(
-                success=True, task_list_id=group.id
-            ).to_dict()
+            AddScheduleTaskGroupVO(success=True, task_list_id=group.id).to_dict()
         )
     except SupernoteError as err:
         return err.to_response()

@@ -66,11 +66,7 @@ def task_to_vtodo(
     group_title: str | None = None,
 ) -> Todo:
     """Convert a Supernote schedule task object to an ical.todo.Todo object."""
-    task_id = (
-        getattr(task, "id", None)
-        or getattr(task, "task_id", None)
-        or "unknown"
-    )
+    task_id = getattr(task, "id", None) or getattr(task, "task_id", None) or "unknown"
     uid = f"supernote-task-{task_id}@supernote"
 
     # Status mapping
@@ -156,8 +152,7 @@ class ICalExportService:
         calendar = Calendar()
         for task in tasks:
             group_title = (
-                groups_map.get(task.group_id)
-                or groups_map.get(task.task_list_id)
+                groups_map.get(task.group_id) or groups_map.get(task.task_list_id)
                 if task.task_list_id
                 else None
             )
