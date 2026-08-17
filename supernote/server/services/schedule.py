@@ -85,7 +85,7 @@ class ScheduleService:
             stmt = select(ScheduleTaskGroupDO).where(
                 ScheduleTaskGroupDO.user_id == user_id,
                 or_(
-                    ScheduleTaskGroupDO.client_task_list_id == str(group_id),
+                    ScheduleTaskGroupDO.client_task_list_id == group_id,
                     ScheduleTaskGroupDO.task_list_id == group_id,
                 ),
             )
@@ -202,16 +202,15 @@ class ScheduleService:
             raise ValueError("Detail is too long")
         async with self.session_manager.session() as session:
             group = await self.get_group(user_id, group_id)
-            int_group_id = (
-                group.task_list_id
-                if group
-                else (int(group_id) if str(group_id).isdigit() else 0)
-            )
-            client_group_id = (
-                str(group_id)
-                if int_group_id == 0
-                else (group.client_task_list_id if group else None)
-            )
+            if group:
+                int_group_id = group.task_list_id
+                client_group_id = group.client_task_list_id
+            elif group_id.isdigit():
+                int_group_id = int(group_id)
+                client_group_id = None
+            else:
+                int_group_id = 0
+                client_group_id = group_id
 
             kwargs: dict[str, Any] = {
                 "user_id": user_id,
@@ -235,10 +234,10 @@ class ScheduleService:
                 "all_sort_time": all_sort_time,
             }
             if task_id is not None:
-                if str(task_id).isdigit():
+                if task_id.isdigit():
                     kwargs["task_id"] = int(task_id)
                 else:
-                    kwargs["client_task_id"] = str(task_id)
+                    kwargs["client_task_id"] = task_id
 
             task = ScheduleTaskDO(**kwargs)
             session.add(task)
@@ -253,7 +252,7 @@ class ScheduleService:
             stmt = select(ScheduleTaskDO).where(
                 ScheduleTaskDO.user_id == user_id,
                 or_(
-                    ScheduleTaskDO.client_task_id == str(task_id),
+                    ScheduleTaskDO.client_task_id == task_id,
                     ScheduleTaskDO.task_id == task_id,
                 ),
             )
@@ -272,7 +271,7 @@ class ScheduleService:
             if group_id is not None:
                 query = query.where(
                     or_(
-                        ScheduleTaskDO.client_task_list_id == str(group_id),
+                        ScheduleTaskDO.client_task_list_id == group_id,
                         ScheduleTaskDO.task_list_id == group_id,
                     )
                 )
