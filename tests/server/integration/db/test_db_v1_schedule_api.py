@@ -26,11 +26,14 @@ def schedule_test_db(tmp_path: Path) -> Path:
     target_path = tmp_path / "test_schedule_compat.sqlite"
     shutil.copy2(SCHEDULE_FIXTURE_PATH, target_path)
 
-    # Apply alembic migrations to head
-    db_url = f"sqlite+aiosqlite:///{target_path}"
+    # Apply alembic migrations to head using sync driver for reliable file flush
+    sync_url = f"sqlite:///{target_path}"
+    async_url = f"sqlite+aiosqlite:///{target_path}"
+    os.environ["SUPERNOTE_DB_URL"] = async_url
+
     alembic_cfg = Config("/workspaces/supernote/supernote/alembic.ini")
     alembic_cfg.set_main_option("script_location", "/workspaces/supernote/supernote/alembic")
-    alembic_cfg.set_main_option("sqlalchemy.url", db_url)
+    alembic_cfg.set_main_option("sqlalchemy.url", sync_url)
     command.upgrade(alembic_cfg, "head")
 
     return target_path
