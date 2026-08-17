@@ -1,49 +1,39 @@
 """Integration test verifying backward compatibility loading pre-existing schedule database snapshots via REST API."""
 
-import os
 import shutil
-import jwt
 from pathlib import Path
-from alembic import command
-from alembic.config import Config
-import pytest
+
+import jwt
 from aiohttp.test_utils import TestClient, TestServer
 
-from supernote.server.app import create_app
-from supernote.server.config import ServerConfig
-from supernote.server.services.user import JWT_ALGORITHM
 from supernote.client.auth import AbstractAuth
 from supernote.client.client import Client
 from supernote.client.schedule import ScheduleClient
+from supernote.server.app import create_app
+from supernote.server.config import AuthConfig, ServerConfig
+from supernote.server.db.migrations import run_migrations
+from supernote.server.services.user import JWT_ALGORITHM
 
 FIXTURES_DIR = Path(__file__).parent.parent.parent.parent / "fixtures"
 SCHEDULE_FIXTURE_PATH = FIXTURES_DIR / "db_v1_schedule.sqlite"
 
 
-@pytest.fixture
-def schedule_test_db(tmp_path: Path) -> Path:
-    """Copy the pre-populated v1 schedule fixture database to a temp path for testing."""
-    target_path = tmp_path / "test_schedule_compat.sqlite"
-    shutil.copy2(SCHEDULE_FIXTURE_PATH, target_path)
-
-    # Apply alembic migrations to head using sync driver for reliable file flush
-    sync_url = f"sqlite:///{target_path}"
-    async_url = f"sqlite+aiosqlite:///{target_path}"
-    os.environ["SUPERNOTE_DB_URL"] = async_url
-
-    alembic_cfg = Config("/workspaces/supernote/supernote/alembic.ini")
-    alembic_cfg.set_main_option("script_location", "/workspaces/supernote/supernote/alembic")
-    alembic_cfg.set_main_option("sqlalchemy.url", sync_url)
-    command.upgrade(alembic_cfg, "head")
-
-    return target_path
-
-
-async def test_load_existing_schedule_database_via_api(schedule_test_db: Path) -> None:
+async def test_load_existing_schedule_database_via_api(tmp_path: Path) -> None:
     """Verify that existing pre-upgrade schedule task groups and items are read correctly via Supernote REST API."""
-    db_url = f"sqlite+aiosqlite:///{schedule_test_db}"
-    os.environ["SUPERNOTE_DB_URL"] = db_url
-    config = ServerConfig()
+    storage_dir = tmp_path / "storage"
+    db_file = storage_dir / "system" / "supernote.db"
+    db_file.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(SCHEDULE_FIXTURE_PATH, db_file)
+
+    # Run migrations on the copied database to head
+    sync_url = f"sqlite:///{db_file}"
+    run_migrations(sync_url, "head")
+
+    config = ServerConfig(
+        storage_dir=str(storage_dir),
+        auth=AuthConfig(secret_key="test-secret-key-32-characters-long!!"),
+        mcp_port=0,
+    )
     app = create_app(config)
 
     server = TestServer(app)
@@ -72,15 +62,34 @@ async def test_load_existing_schedule_database_via_api(schedule_test_db: Path) -
         assert len(groups) >= 1
         inbox_group = next((g for g in groups if g.title == "Inbox Tasks"), None)
         assert inbox_group is not None
+        assert inbox_group.task_list_id == "744362741145272573"
         group_id = inbox_group.task_list_id
 
         # 2. List Tasks in Group via API
-        tasks_vo = await schedule_client.get_tasks_all(group_id=str(group_id))
+        tasks_vo = await schedule_client.get_tasks_all(group_id=group_id)
         assert tasks_vo.success is True
-        titles = {t.title for t in tasks_vo.schedule_task}
-        assert "Buy Milk Before Upgrade" in titles
-        assert "Schedule Dentist Appointment" in titles
+        tasks_by_title = {t.title: t for t in tasks_vo.schedule_task}
+        assert "Buy Milk Before Upgrade" in tasks_by_title
+        assert "Schedule Dentist Appointment" in tasks_by_title
+
+        # Assert exact task IDs to verify stability across schema upgrades
+        milk_task = tasks_by_title["Buy Milk Before Upgrade"]
+        assert milk_task.task_id == "744362741170438528"
+        assert milk_task.task_list_id == "744362741145272573"
+        assert milk_task.detail == "Must purchase whole milk"
+
+        dentist_task = tasks_by_title["Schedule Dentist Appointment"]
+        assert dentist_task.task_id == "744362741199799018"
+        assert dentist_task.task_list_id == "744362741145272573"
+        assert dentist_task.detail == "Routine checkup"
+
+        # 3. Retrieve Individual Task by ID via API
+        task1_detail = await schedule_client.get_task(milk_task.task_id)
+        assert task1_detail.success is True
+        assert task1_detail.task_id == "744362741170438528"
+        assert task1_detail.title == "Buy Milk Before Upgrade"
 
     finally:
         await client.close()
         await server.close()
+
