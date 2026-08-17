@@ -609,7 +609,7 @@ async def test_ical_feed_content_and_filtering(
     # Populate data via ScheduleClient
     group_vo = await schedule.create_group("Sprint Tasks")
     assert group_vo.task_list_id is not None
-    group_id = int(group_vo.task_list_id)
+    group_id = str(group_vo.task_list_id)
 
     task1 = await schedule.create_task(
         group_id,
@@ -634,3 +634,37 @@ async def test_ical_feed_content_and_filtering(
 
     # Cleanup
     await schedule.delete_group(group_id)
+
+
+async def test_schedule_string_uuid_support(authenticated_client: Client) -> None:
+    """Verify schedule routes handle string UUIDs sent by Partner App and Android clients."""
+    schedule = ScheduleClient(authenticated_client)
+
+    string_group_id = "dcf35927c2c7279e3d204f592af6e9ed"
+    string_task_id = "a1b2c3d4e5f678901234567890abcdef"
+
+    # Create task with string UUIDs
+    resp = await schedule.create_task(
+        group_id=string_group_id,
+        title="Partner App Sync Task",
+        task_id=string_task_id,
+    )
+    assert resp.success is True
+    assert resp.task_id == string_task_id
+
+    # Retrieve all tasks and verify string UUID is preserved verbatim
+    all_tasks_vo = await schedule.get_tasks_all(group_id=string_group_id)
+    assert all_tasks_vo.success is True
+    matching_task = next(
+        (t for t in all_tasks_vo.schedule_task if t.task_id == string_task_id), None
+    )
+    assert matching_task is not None
+    assert matching_task.task_list_id == string_group_id
+
+    # Get single task
+    task_vo = await schedule.get_task(string_task_id)
+    assert task_vo.success is True
+    assert task_vo.task_id == string_task_id
+
+    # Delete task
+    await schedule.delete_task(string_task_id)
