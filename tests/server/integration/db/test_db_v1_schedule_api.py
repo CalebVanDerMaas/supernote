@@ -43,7 +43,9 @@ async def test_load_existing_schedule_database_via_api(tmp_path: Path) -> None:
     test_user = "test@example.com"
     secret = config.auth.secret_key
     token = jwt.encode({"sub": test_user}, secret, algorithm=JWT_ALGORITHM)
-    await app["coordination_service"].set_value(f"session:{token}", f"{test_user}|", ttl=3600)
+    await app["coordination_service"].set_value(
+        f"session:{token}", f"{test_user}|", ttl=3600
+    )
 
     class TokenAuth(AbstractAuth):
         async def async_get_access_token(self) -> str:
@@ -92,4 +94,3 @@ async def test_load_existing_schedule_database_via_api(tmp_path: Path) -> None:
     finally:
         await client.close()
         await server.close()
-
