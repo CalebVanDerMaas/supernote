@@ -34,6 +34,4 @@ RUN mkdir -p /data /data/config && \
 
 EXPOSE 8080
 
-VOLUME ["/data"]
-
 CMD ["supernote-server", "serve"]
