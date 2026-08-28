@@ -29,8 +29,8 @@ RUN pip install --no-cache-dir ".[server]"
 RUN mkdir -p /data /data/config && \
     chown -R supernote:supernote /data
 
-# Switch to non-root user
-USER supernote
+# Railway volumes mount root-owned; run as root so /data is writable.
+# (Single-tenant container; revisit if upstream adds an entrypoint chown.)
 
 EXPOSE 8080
 
