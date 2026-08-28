@@ -19,11 +19,11 @@ RUN apt-get update && \
 # Set working directory and copy project files
 WORKDIR /app
 
-COPY pyproject.toml README.md LICENSE ./
+COPY pyproject.toml README.md LICENSE r2_backup.py ./
 COPY supernote/ supernote/
 
 # Install the package with server dependencies
-RUN pip install --no-cache-dir ".[server]"
+RUN pip install --no-cache-dir ".[server]" boto3
 
 # Create directories for storage and config, and set permissions
 RUN mkdir -p /data /data/config && \
@@ -34,4 +34,4 @@ RUN mkdir -p /data /data/config && \
 
 EXPOSE 8080
 
-CMD ["supernote-server", "serve"]
+CMD ["sh", "-c", "python /app/r2_backup.py & exec supernote-server serve"]
