@@ -28,14 +28,18 @@ class VirtualFileSystem:
         matches a known category subfolder (Note, MyStyle, Document), checks inside its
         explicit parent container (NOTE or DOCUMENT).
         """
-        stmt = select(UserFileDO).where(
-            UserFileDO.user_id == user_id,
-            UserFileDO.directory_id == 0,
-            UserFileDO.file_name == segment,
-            UserFileDO.is_active == "Y",
+        stmt = (
+            select(UserFileDO)
+            .where(
+                UserFileDO.user_id == user_id,
+                UserFileDO.directory_id == 0,
+                UserFileDO.file_name == segment,
+                UserFileDO.is_active == "Y",
+            )
+            .order_by(UserFileDO.id.desc())
         )
         result = await self.db.execute(stmt)
-        if node := result.scalar_one_or_none():
+        if node := result.scalars().first():
             return node
 
         if target_container := SYSTEM_CATEGORY_CONTAINER_MAP.get(segment):
@@ -232,14 +236,20 @@ class VirtualFileSystem:
             if i == 0 and current_dir_id == 0:
                 node = await self._resolve_root_segment(user_id, part)
             else:
-                stmt = select(UserFileDO).where(
-                    UserFileDO.user_id == user_id,
-                    UserFileDO.directory_id == current_dir_id,
-                    UserFileDO.file_name == part,
-                    UserFileDO.is_active == "Y",
+                stmt = (
+                    select(UserFileDO)
+                    .where(
+                        UserFileDO.user_id == user_id,
+                        UserFileDO.directory_id == current_dir_id,
+                        UserFileDO.file_name == part,
+                        UserFileDO.is_active == "Y",
+                    )
+                    # Duplicate active names (e.g. interrupted uploads) must
+                    # never 500 a sync server: resolve to the newest row.
+                    .order_by(UserFileDO.id.desc())
                 )
                 result = await self.db.execute(stmt)
-                node = result.scalar_one_or_none()
+                node = result.scalars().first()
 
             if node is None:
                 return None
@@ -287,14 +297,20 @@ class VirtualFileSystem:
                 node = await self._resolve_root_segment(user_id, part)
 
             if node is None:
-                stmt = select(UserFileDO).where(
-                    UserFileDO.user_id == user_id,
-                    UserFileDO.directory_id == current_dir_id,
-                    UserFileDO.file_name == part,
-                    UserFileDO.is_active == "Y",
+                stmt = (
+                    select(UserFileDO)
+                    .where(
+                        UserFileDO.user_id == user_id,
+                        UserFileDO.directory_id == current_dir_id,
+                        UserFileDO.file_name == part,
+                        UserFileDO.is_active == "Y",
+                    )
+                    # Duplicate active names (e.g. interrupted uploads) must
+                    # never 500 a sync server: resolve to the newest row.
+                    .order_by(UserFileDO.id.desc())
                 )
                 result = await self.db.execute(stmt)
-                node = result.scalar_one_or_none()
+                node = result.scalars().first()
 
             if node:
                 if node.is_folder != "Y":
