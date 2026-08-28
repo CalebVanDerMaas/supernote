@@ -508,7 +508,9 @@ class FileService:
             if not node:
                 # Preferring this instead of idempotency for now
                 raise FileNotFound(f"Node {id} not found for user {email}")
-            if node.file_name in IMMUTABLE_SYSTEM_DIRECTORIES:
+            # Guard folders only — a stray FILE that happens to share a system
+            # directory name (e.g. a misdirected upload) must stay deletable.
+            if node.file_name in IMMUTABLE_SYSTEM_DIRECTORIES and node.is_folder == "Y":
                 raise AccessDenied(f"Cannot delete system directory: {node.file_name}")
 
             path_display = await vfs.get_full_path(user_id, node.id)
@@ -547,8 +549,8 @@ class FileService:
                             f"File {file_id} is not in directory {parent_id}"
                         )
 
-                # Immutability check
-                if node.file_name in IMMUTABLE_SYSTEM_DIRECTORIES:
+                # Immutability check (folders only — see delete-by-id note)
+                if node.file_name in IMMUTABLE_SYSTEM_DIRECTORIES and node.is_folder == "Y":
                     raise AccessDenied(
                         f"Cannot delete system directory: {node.file_name}"
                     )
